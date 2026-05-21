@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import hanlp
+import jieba.posseg as pseg
 from pypinyin import Style, pinyin as to_pinyin
 
 # HSK level lookup by word.
@@ -30,18 +30,6 @@ _HSK: dict[str, int] = {
     "辩证": 6, "唯物": 6, "辩证法": 6, "辩证唯物": 6,
 }
 
-_pipeline = None
-
-
-def _get_pipeline():
-    global _pipeline
-    if _pipeline is None:
-        _pipeline = hanlp.load(
-            hanlp.pretrained.mtl.CLOSE_TOK_POS_NER_SRL_DEP_SDP_CON_ELECTRA_SMALL_ZH,
-            tasks={"tok", "pos"},
-        )
-    return _pipeline
-
 
 def _word_pinyin(word: str) -> str:
     syllables = to_pinyin(word, style=Style.TONE)
@@ -53,15 +41,11 @@ def _hsk_level(word: str) -> int | None:
 
 
 def tokenize_chinese(text: str) -> list[dict]:
-    pipeline = _get_pipeline()
-    result = pipeline(text)
-    tokens = result.get("tok", [])
-    pos_tags = result.get("pos", [])
-
-    output = []
-    for i, word in enumerate(tokens):
-        pos = pos_tags[i] if i < len(pos_tags) else ""
-        output.append(
+    results = []
+    for word, pos in pseg.cut(text):
+        if pos == "x" or not word.strip():
+            continue
+        results.append(
             {
                 "surface": word,
                 "dictionary_form": word,
@@ -72,4 +56,4 @@ def tokenize_chinese(text: str) -> list[dict]:
                 "pinyin": _word_pinyin(word),
             }
         )
-    return output
+    return results

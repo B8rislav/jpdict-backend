@@ -16,8 +16,9 @@ dependencies = [
     "redis==5.0.*",
     "sudachipy==0.6.*",
     "sudachidict-core",
-    "hanlp==2.1.*",
     "pypinyin==0.51.*",
+    "jieba>=0.42.1",
+    "bcrypt>=5.0.0",
 ]
 
 [project.optional-dependencies]

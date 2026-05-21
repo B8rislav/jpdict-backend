@@ -44,16 +44,21 @@ def _jlpt_level(dictionary_form: str) -> int | None:
     return _JLPT.get(dictionary_form)
 
 
+_SKIP_POS = {"補助記号", "空白"}
+
+
 def tokenize_japanese(text: str) -> list[dict]:
     t = _get_tokenizer()
     morphemes = t.tokenize(text, tokenizer.Tokenizer.SplitMode.C)
     results = []
     for m in morphemes:
         surface = m.surface()
-        dict_form = m.dictionary_form()
-        reading = m.reading_form()
         pos_tuple = m.part_of_speech()
         pos = pos_tuple[0] if pos_tuple else ""
+        if pos in _SKIP_POS or not surface.strip():
+            continue
+        dict_form = m.dictionary_form()
+        reading = m.reading_form()
         results.append(
             {
                 "surface": surface,
