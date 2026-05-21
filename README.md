@@ -86,9 +86,9 @@ uv run pytest --cov=app --cov-report=term-missing
 | POST | `/api/auth/register` | No | Create account |
 | POST | `/api/auth/login` | No | Login, returns JWT + refresh cookie |
 | POST | `/api/auth/refresh` | Cookie | Refresh access token |
-| POST | `/api/analyze` | Yes | Tokenize and annotate Japanese or Chinese text |
-| GET | `/api/search` | Yes | Dictionary search |
-| GET | `/api/kanji/{char}` | Yes | Kanji detail card |
+| POST | `/api/analyze` | No | Tokenize and annotate Japanese or Chinese text |
+| GET | `/api/search` | No | Dictionary search |
+| GET | `/api/kanji/{char}` | No | Kanji detail card |
 | POST | `/api/explain` | Yes | AI explanation (SSE stream) |
 | GET | `/api/vocabulary` | Yes | List saved words |
 | POST | `/api/vocabulary` | Yes | Save a word |
