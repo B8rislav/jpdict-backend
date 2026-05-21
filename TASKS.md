@@ -33,25 +33,24 @@
 
 ## Phase 3 — Authentication
 
-- [ ] **3.1** Write `app/core/security.py`: `hash_password`, `verify_password` (bcrypt cost 12), `create_access_token` (15 min), `create_refresh_token` (7 days), `decode_token`
-- [ ] **3.2** Write Pydantic schemas in `app/schemas/auth.py`: `UserCreate`, `UserResponse`, `TokenResponse`
-- [ ] **3.3** Write `app/routers/auth.py` — `POST /api/auth/register` (201/409), `POST /api/auth/login` (200 + httpOnly refresh cookie), `POST /api/auth/refresh` (200/401)
-- [ ] **3.4** Write `get_current_user` FastAPI dependency — validates Bearer token, returns `User` ORM object; used on all protected routes
-- [ ] **3.5** Register auth router in `main.py`
-- [ ] **3.6** Verify: register → login → call protected endpoint → refresh flow works end-to-end
+- [x] **3.1** Write `app/core/security.py`: `hash_password`, `verify_password` (bcrypt cost 12), `create_access_token` (15 min), `create_refresh_token` (7 days), `decode_token`
+- [x] **3.2** Write Pydantic schemas in `app/schemas/auth.py`: `UserCreate`, `UserResponse`, `TokenResponse`
+- [x] **3.3** Write `app/routers/auth.py` — `POST /api/auth/register` (201/409), `POST /api/auth/login` (200 + httpOnly refresh cookie), `POST /api/auth/refresh` (200/401)
+- [x] **3.4** Write `get_current_user` FastAPI dependency — validates Bearer token, returns `User` ORM object; used on all protected routes
+- [x] **3.5** Register auth router in `main.py`
+- [x] **3.6** Verify: register → login → call protected endpoint → refresh flow works end-to-end
 
 ---
 
 ## Phase 4 — NLP Module
 
-- [ ] **4.1** Write `app/services/nlp/classifier.py` — `QueryType` enum (KANJI/HANZI/SENTENCE/REVERSE), Unicode range constants, `classify(query, language)` function
-- [ ] **4.2** Write `app/services/nlp/japanese.py` — init SudachiPy tokenizer (mode C, SudachiDict-core), `tokenize_japanese(text) -> list[TokenResult]` with surface, dictionary form, reading (katakana), POS, JLPT level
-- [ ] **4.3** Write `app/services/nlp/chinese.py` — HanLP singleton (lazy init), `tokenize_chinese(text) -> list[TokenResult]` with word segmentation, POS, pinyin (pypinyin), HSK level; support simplified + traditional
-- [ ] **4.4** Write `compute_complexity(tokens)` — median JLPT/HSK level, requires ≥ 3 tokens with non-null levels, returns `int | None`
-- [ ] **4.5** Write Pydantic schemas in `app/schemas/analyze.py`: `AnalyzeRequest`, `TokenResult`, `AnalyzeResponse`
-- [ ] **4.6** Write `app/routers/analyze.py` — `POST /api/analyze`: 200 (full result), 206 (complexity not computable), 400 (empty/invalid query)
-- [ ] **4.7** Register analyze router in `main.py`
-- [ ] **4.8** Verify: `POST /api/analyze {"query":"日本語","language":"jp"}` returns tokens with readings, POS, JLPT levels, and complexity score
+- [x] **4.1** Write `app/services/nlp/classifier.py` — `QueryType` enum (KANJI/HANZI/SENTENCE/REVERSE), Unicode range constants, `classify(query, language)` function
+- [x] **4.2** Write `app/services/nlp/japanese.py` — init SudachiPy tokenizer (mode C, SudachiDict-core), `tokenize_japanese(text) -> list[TokenResult]` with surface, dictionary form, reading (katakana), POS, JLPT level
+- [x] **4.3** Write `app/services/nlp/chinese.py` — HanLP singleton (lazy init), `tokenize_chinese(text) -> list[TokenResult]` with word segmentation, POS, pinyin (pypinyin), HSK level; support simplified + traditional
+- [x] **4.4** Write Pydantic schemas in `app/schemas/analyze.py`: `AnalyzeRequest`, `TokenResult`, `AnalyzeResponse`
+- [x] **4.5** Write `app/routers/analyze.py` — `POST /api/analyze`: 200 (full result), 206 (level_breakdown not computable — < 3 leveled tokens), 400 (empty/invalid query)
+- [x] **4.6** Register analyze router in `main.py`
+- [x] **4.7** Verify: `POST /api/analyze {"query":"日本語","language":"jp"}` returns tokens with readings, POS, JLPT levels, and level_breakdown
 
 ---
 
