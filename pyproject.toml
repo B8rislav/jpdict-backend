@@ -19,6 +19,7 @@ dependencies = [
     "pypinyin==0.51.*",
     "jieba>=0.42.1",
     "bcrypt>=5.0.0",
+    "lxml>=5.0.0",
 ]
 
 [project.optional-dependencies]

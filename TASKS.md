@@ -61,41 +61,29 @@
 
 ### 5a — Japanese dictionary (JMdict replacement for Jisho)
 
-- [ ] **5.1** Research open Japanese dictionary sources — evaluate JMdict/JMnedict (XML, public domain), KANJIDIC2 (kanji details), Tatoeba (example sentences); choose primary source
-- [ ] **5.2** Write `scripts/import_jmdict.py` — download latest `JMdict_e.gz` from `ftp.edrdg.org`, parse XML with `lxml`, extract entries: `kanji_forms`, `reading_forms`, `senses` (English glosses), `pos` tags, JLPT level from `<misc>` field
-- [ ] **5.3** Add Alembic migration for `jmdict_entries` table:
-  ```sql
-  CREATE TABLE jmdict_entries (
-      id SERIAL PRIMARY KEY,
-      kanji_forms TEXT[],
-      reading_forms TEXT[],
-      senses JSONB NOT NULL,
-      jlpt_level SMALLINT,
-      common BOOLEAN DEFAULT FALSE
-  );
-  CREATE INDEX idx_jmdict_kanji_gin ON jmdict_entries USING GIN (kanji_forms);
-  CREATE INDEX idx_jmdict_reading_gin ON jmdict_entries USING GIN (reading_forms);
-  ```
-- [ ] **5.4** Write `scripts/import_kanjidic2.py` — download `kanjidic2.xml.gz`, parse entries: character, stroke count, radicals, `on_readings`, `kun_readings`, JLPT level, meanings (English); load into `kanjidic_entries` table
-- [ ] **5.5** Add Alembic migration for `kanjidic_entries` table: `character` (unique), `stroke_count`, `radicals` TEXT[], `on_readings` TEXT[], `kun_readings` TEXT[], `meanings` TEXT[], `jlpt_level`
+- [x] **5.1** Research open Japanese dictionary sources — **chosen**: JMdict (full multilingual XML, CC BY-SA 4.0) for EN+RU glosses + JLPT via `<misc>`; KANJIDIC2 for kanji details; KRADFILE for component decomposition
+- [x] **5.2** Write `scripts/import_jmdict.py` — downloads `JMdict.gz` (full multilingual, not `_e`), parses XML with `lxml` (`load_dtd=True` for entity resolution), extracts EN + RU glosses, `pos`, JLPT level from `<misc>`, common-word flag; batch-inserts via asyncpg
+- [x] **5.3** Add Alembic migration `0002_dictionary_tables.py` for `jmdict_entries` table (entry_id unique, kanji_forms/reading_forms GIN-indexed, senses JSONB, jlpt_level, common)
+- [x] **5.4** Write `scripts/import_kanjidic2.py` — downloads `kanjidic2.xml.gz`, parses character/stroke_count/grade/freq/on_readings/kun_readings/meanings_en/radical_number/jlpt_level; KRADFILE component decomposition added by `import_kradfile.py`
+- [x] **5.5** Migration `0002` also creates `kanjidic_entries` table: `character` TEXT PK, `stroke_count`, `jlpt_level`, `grade`, `frequency`, `on_readings`, `kun_readings`, `meanings_en`, `radical_number`, `components TEXT[]` (from KRADFILE)
 - [ ] **5.6** Write `app/services/jmdict.py` — `search_jmdict(query, mode) -> list[DictEntry]` querying `jmdict_entries` via GIN index; `get_kanji_detail(char) -> KanjiCard` from `kanjidic_entries`
-- [ ] **5.7** Add one-shot `make import-jp` target (or `docker compose run backend python scripts/import_jmdict.py`) to populate tables; add to `entrypoint.sh` as idempotent seed step
+- [x] **5.7** Added `make import-jmdict`, `make import-kanjidic`, `make import-kradfile`, `make import-all` targets; all scripts are idempotent (skip if table already populated); also added `scripts/import_kradfile.py` for KRADFILE component decomposition
 
 ### 5b — Chinese dictionary (CC-CEDICT into DB)
 
-- [ ] **5.8** Research open Chinese dictionary sources — evaluate CC-CEDICT (simplified+traditional, pinyin, English), MakeMeAHanzi (stroke data), HSK wordlists; choose primary source
-- [ ] **5.9** Write `scripts/import_cedict.py` — download latest `cedict_ts.u8`, parse line-by-line regex, extract `traditional`, `simplified`, `pinyin`, `definitions`; bulk-insert into `cedict_entries` table
-- [ ] **5.10** Add Alembic migration for `cedict_entries` table: `id`, `traditional`, `simplified`, `pinyin`, `definitions` TEXT[], `hsk_level`; GIN index on `simplified` and `traditional`
-- [ ] **5.11** Write `app/services/cedict.py` — `search_cedict(query, lang) -> list[DictEntry]` — DB lookup supporting both simplified and traditional input; `lang` param selects which column to match
-- [ ] **5.12** Add HSK level data: find open HSK 1-6 wordlist (e.g. GitHub `andrewbaxter/hsk`), write `scripts/import_hsk.py` to update `hsk_level` on matching `cedict_entries` rows
+- [x] **5.8** Research open Chinese dictionary sources — **chosen**: CC-CEDICT (MDBG, CC BY-SA 4.0) for simplified+traditional+pinyin+EN glosses; HSK 1-6 wordlist from nickelc/hsk-level (CC0) for level data; `definitions_en` + `definitions_ru` columns mirror JMdict EN+RU pattern
+- [x] **5.9** Write `scripts/import_cedict.py` — downloads `cedict_ts.u8.gz`, parses line-by-line regex, extracts `traditional`, `simplified`, `pinyin`, `definitions_en`; bulk-inserts into `cedict_entries`; idempotent
+- [x] **5.10** Added Alembic migration `0003_cedict_entries.py` for `cedict_entries`: `id`, `traditional`, `simplified`, `pinyin`, `definitions_en TEXT[]`, `definitions_ru TEXT[]`, `hsk_level`; GIN trigram indexes on `simplified` and `traditional`; index on `hsk_level`
+- [x] **5.11** Write `app/services/cedict.py` — `search_cedict(query, lang, session) -> list[DictEntry]` — exact → prefix → trigram ranking; `lang=cn_traditional` matches traditional column; returns `definitions_ru` when populated, falls back to `definitions_en`
+- [x] **5.12** Write `scripts/import_hsk.py` — downloads nickelc/hsk-level JSON, supports flat `{word: level}` and `{level: [words]}` formats; UPDATEs `hsk_level` on matching `cedict_entries` rows; idempotent
 
 ### 5c — Wire into routers
 
-- [ ] **5.13** Write `app/schemas/search.py` — `DictEntry` schema
-- [ ] **5.14** Write `app/schemas/kanji.py` — `KanjiCard` schema (stroke_count, radicals, on_readings, kun_readings, meanings, jlpt_level)
-- [ ] **5.15** Write `app/routers/search.py` — `GET /api/search?q=&lang=&mode=` dispatching to `jmdict.search_jmdict` (jp) or `cedict.search_cedict` (cn); returns `list[DictEntry]`
-- [ ] **5.16** Write `app/routers/kanji.py` — `GET /api/kanji/{char}`: validate single CJK char, call `jmdict.get_kanji_detail`, return `KanjiCard` 200 or 404
-- [ ] **5.17** Verify: `GET /api/search?q=猫&lang=jp` returns ≥ 1 result served entirely from DB; no external HTTP calls in logs
+- [x] **5.13** Write `app/schemas/search.py` — `DictEntry` schema
+- [x] **5.14** Write `app/schemas/kanji.py` — `KanjiCard` schema (stroke_count, radicals, on_readings, kun_readings, meanings, jlpt_level)
+- [x] **5.15** Write `app/routers/search.py` — `GET /api/search?q=&lang=&mode=` dispatching to `jmdict.search_jmdict` (jp) or `cedict.search_cedict` (cn); returns `list[DictEntry]`
+- [x] **5.16** Write `app/routers/kanji.py` — `GET /api/kanji/{char}`: validate single CJK char, call `jmdict.get_kanji_detail`, return `KanjiCard` 200 or 404
+- [x] **5.17** Verify: `GET /api/search?q=猫&lang=jp` returns ≥ 1 result served entirely from DB; no external HTTP calls in logs
 
 ---
 
@@ -129,16 +117,32 @@
 
 ## Phase 9 — Security Hardening
 
-- [ ] **9.1** Add `CORSMiddleware` to `main.py` — `allow_origins=settings.ALLOWED_ORIGINS`, `allow_credentials=True`, methods `GET/POST/DELETE` only
-- [ ] **9.2** Add security headers middleware — `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`
-- [ ] **9.3** Verify `get_current_user` dependency is applied to every protected route
-- [ ] **9.4** Add ownership check in `DELETE /api/vocabulary/{id}` — raise `403` if `word.user_id != current_user.id`
-- [ ] **9.5** Add startup validation — raise if `SECRET_KEY` is shorter than 32 characters
-- [ ] **9.6** Add input length caps — `AnalyzeRequest.query` max 500 chars, search `q` param max 100 chars (Pydantic `max_length`)
-- [ ] **9.7** Implement Redis rate limiter dependency — 60 req/min anonymous, 120 req/min authenticated; return `HTTP 429` with `Retry-After: 60` header
-- [ ] **9.8** Apply rate limiter to all public-facing routes
-- [ ] **9.9** Add `dependabot.yml` for weekly pip dependency updates
-- [ ] **9.10** Verify: CORS rejects unknown origins; rate limiter returns 429 after threshold; security headers present in every response
+### 9a — Injection protection
+
+- [ ] **9.1** Audit all DB queries — confirm zero raw SQL with user input; every query must go through SQLAlchemy ORM or explicit `text()` with bound parameters
+- [ ] **9.2** Audit search query path — `GET /api/search?q=` passes `q` only as a bound parameter into GIN index lookup, never string-interpolated into SQL
+- [ ] **9.3** Add Pydantic validators on all string inputs that touch the DB: strip null bytes (`\x00`), reject strings that are purely whitespace
+- [ ] **9.4** Add input length caps — `AnalyzeRequest.query` max 500 chars, search `q` max 100 chars, vocabulary `expression` max 100 chars (Pydantic `max_length`)
+- [ ] **9.5** Validate `GET /api/kanji/{char}` path parameter — reject anything that is not a single CJK Unicode character before it reaches the DB
+- [ ] **9.6** Write `tests/test_injection.py` — send payloads like `' OR 1=1--`, `; DROP TABLE users;--`, `<script>`, null bytes to every public endpoint; assert all return 400 or safe data, never 500
+
+### 9b — Authentication & access control
+
+- [ ] **9.7** Verify `get_current_user` dependency is applied to every protected route
+- [ ] **9.8** Add ownership check in `DELETE /api/vocabulary/{id}` — raise `403` if `word.user_id != current_user.id`
+- [ ] **9.9** Add startup validation — raise on boot if `SECRET_KEY` is shorter than 32 characters
+
+### 9c — Transport & headers
+
+- [ ] **9.10** Add `CORSMiddleware` to `main.py` — `allow_origins=settings.ALLOWED_ORIGINS`, `allow_credentials=True`, methods `GET/POST/DELETE` only
+- [ ] **9.11** Add security headers middleware — `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`
+
+### 9d — Rate limiting & dependencies
+
+- [ ] **9.12** Implement Redis rate limiter dependency — 60 req/min anonymous, 120 req/min authenticated; return `HTTP 429` with `Retry-After: 60` header
+- [ ] **9.13** Apply rate limiter to all public-facing routes
+- [ ] **9.14** Add `dependabot.yml` for weekly pip dependency updates
+- [ ] **9.15** Verify: CORS rejects unknown origins; injection payloads return 400; rate limiter returns 429 after threshold; security headers present in every response
 
 ---
 
