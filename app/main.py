@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import analyze, auth, kanji, reibun, search
+from app.routers import analyze, auth, history, kanji, reibun, search, vocabulary
 
 
 @asynccontextmanager
@@ -26,6 +26,8 @@ app.include_router(analyze.router)
 app.include_router(search.router)
 app.include_router(kanji.router)
 app.include_router(reibun.router)
+app.include_router(vocabulary.router)
+app.include_router(history.router)
 
 
 @app.get("/health")
