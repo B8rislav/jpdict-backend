@@ -89,21 +89,21 @@
 
 ## Phase 6 — Vocabulary & History Endpoints
 
-- [ ] **6.1** Write `app/schemas/vocabulary.py` — `SavedWordCreate`, `SavedWord` schemas
-- [ ] **6.2** Write `app/routers/vocabulary.py` — `GET /api/vocabulary`, `POST /api/vocabulary` (201/409), `DELETE /api/vocabulary/{id}` (204/403/404)
-- [ ] **6.3** Write `app/routers/history.py` — `GET /api/history?lang=&limit=`
-- [ ] **6.4** Register vocabulary and history routers in `main.py`
-- [ ] **6.5** Verify: OpenAPI docs at `/docs` show all endpoints; vocabulary CRUD works end-to-end
+- [x] **6.1** Write `app/schemas/vocabulary.py` — `SavedWordCreate`, `SavedWord` schemas
+- [x] **6.2** Write `app/routers/vocabulary.py` — `GET /api/vocabulary`, `POST /api/vocabulary` (201/409), `DELETE /api/vocabulary/{id}` (204/403/404)
+- [x] **6.3** Write `app/routers/history.py` — `GET /api/history?lang=&limit=`
+- [x] **6.4** Register vocabulary and history routers in `main.py`
+- [x] **6.5** Verify: OpenAPI docs at `/docs` show all endpoints; vocabulary CRUD works end-to-end
 
 ---
 
 ## Phase 7 — Caching Layer
 
-- [ ] **7.1** Write `app/services/cache.py` — `TTLCache(maxsize=512, ttl=600)` in-memory layer using `cachetools`
-- [ ] **7.2** Implement `get_kanji_cached(char)` — check in-memory cache first, then `kanji_cache` table (filter `expires_at > NOW()`), return data or `None`
-- [ ] **7.3** Implement `set_kanji_cache(char, data)` — write to in-memory cache and upsert into `kanji_cache` with `expires_at = NOW() + 30 days`
-- [ ] **7.4** Wire cache into kanji endpoint: on miss call `jmdict.get_kanji_detail`, populate both cache levels; on hit skip DB query
-- [ ] **7.5** Verify: second request for same kanji is served from in-memory cache (no DB query visible in logs)
+- [x] **7.1** Write `app/services/cache.py` — `TTLCache(maxsize=512, ttl=600)` in-memory layer using `cachetools`
+- [x] **7.2** Implement `get_kanji_cached(char)` — check in-memory cache first, then `kanji_cache` table (filter `expires_at > NOW()`), return data or `None`
+- [x] **7.3** Implement `set_kanji_cache(char, data)` — write to in-memory cache and upsert into `kanji_cache` with `expires_at = NOW() + 30 days`
+- [x] **7.4** Wire cache into kanji endpoint: on miss call `jmdict.get_kanji_detail`, populate both cache levels; on hit skip DB query
+- [x] **7.5** Verify: second request for same kanji is served from in-memory cache (no DB query visible in logs)
 
 ---
 

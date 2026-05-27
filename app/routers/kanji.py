@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.database import get_session
 from app.schemas.kanji import KanjiCard
 from app.services import jmdict
+from app.services import cache as cache_svc
 
 router = APIRouter(prefix="/api", tags=["kanji"])
 
@@ -84,8 +85,13 @@ async def kanji_detail(
     if len(char) != 1 or not _is_cjk(char):
         raise HTTPException(status_code=400, detail="Single CJK character required")
 
+    result = await cache_svc.get_kanji_cached(char, session)
+    if result is not None:
+        return result
+
     result = await jmdict.get_kanji_detail(char, session)
     if result is None:
         raise HTTPException(status_code=404, detail="Kanji not found")
 
+    await cache_svc.set_kanji_cache(char, result, session)
     return result
