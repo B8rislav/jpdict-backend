@@ -1,18 +1,22 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import Paginator, paginate
+from app.core.rate_limit import rate_limit
 from app.db.database import get_session
 from app.schemas.page import Page
 from app.schemas.search import DictEntry
+from app.schemas.validators import SafeStr
 from app.services import cedict, jmdict
 
-router = APIRouter(prefix="/api", tags=["search"])
+router = APIRouter(prefix="/api", tags=["search"], dependencies=[Depends(rate_limit)])
 
 
 @router.get("/search", response_model=Page[DictEntry])
 async def search(
-    q: str = Query(..., min_length=1, max_length=100),
+    q: Annotated[SafeStr, Query(min_length=1, max_length=100)],
     lang: str = Query(..., pattern="^(jp|cn|cn_traditional)$"),
     pagination: Paginator = Depends(paginate),
     session: AsyncSession = Depends(get_session),

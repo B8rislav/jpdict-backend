@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,6 +10,7 @@ from app.core.deps import get_current_user
 from app.db.database import get_session
 from app.models.search_history import SearchHistory
 from app.models.user import LanguageEnum, User
+from app.schemas.validators import SafeStr
 
 router = APIRouter(prefix="/api/history", tags=["history"])
 
@@ -26,8 +27,8 @@ class HistoryEntry(BaseModel):
 
 class HistoryCreate(BaseModel):
     language: LanguageEnum
-    query: str
-    query_type: str
+    query: SafeStr = Field(..., max_length=500)
+    query_type: str = Field(..., max_length=50)
 
 
 @router.post("", status_code=status.HTTP_201_CREATED, response_model=HistoryEntry)

@@ -1,10 +1,11 @@
 from pydantic import BaseModel, Field
 
+from app.schemas.validators import SafeStr
 from app.services.nlp.classifier import QueryType
 
 
 class AnalyzeRequest(BaseModel):
-    query: str = Field(..., min_length=1, max_length=500)
+    query: SafeStr = Field(..., min_length=1, max_length=500)
     language: str = Field(..., pattern="^(jp|cn)$")
 
 

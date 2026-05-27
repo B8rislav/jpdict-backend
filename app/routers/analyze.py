@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Response
+from fastapi import APIRouter, Depends, Response
 from fastapi.responses import JSONResponse
 
+from app.core.rate_limit import rate_limit
 from app.schemas.analyze import (
     AnalyzeRequest,
     AnalyzeResponse,
@@ -11,7 +12,7 @@ from app.services.nlp.classifier import QueryType, classify
 from app.services.nlp.chinese import tokenize_chinese
 from app.services.nlp.japanese import tokenize_japanese
 
-router = APIRouter(prefix="/api", tags=["analyze"])
+router = APIRouter(prefix="/api", tags=["analyze"], dependencies=[Depends(rate_limit)])
 
 _COMPLEXITY_MIN_LEVELED = 3
 

@@ -89,21 +89,21 @@
 
 ## Phase 6 — Vocabulary & History Endpoints
 
-- [ ] **6.1** Write `app/schemas/vocabulary.py` — `SavedWordCreate`, `SavedWord` schemas
-- [ ] **6.2** Write `app/routers/vocabulary.py` — `GET /api/vocabulary`, `POST /api/vocabulary` (201/409), `DELETE /api/vocabulary/{id}` (204/403/404)
-- [ ] **6.3** Write `app/routers/history.py` — `GET /api/history?lang=&limit=`
-- [ ] **6.4** Register vocabulary and history routers in `main.py`
-- [ ] **6.5** Verify: OpenAPI docs at `/docs` show all endpoints; vocabulary CRUD works end-to-end
+- [x] **6.1** Write `app/schemas/vocabulary.py` — `SavedWordCreate`, `SavedWord` schemas
+- [x] **6.2** Write `app/routers/vocabulary.py` — `GET /api/vocabulary`, `POST /api/vocabulary` (201/409), `DELETE /api/vocabulary/{id}` (204/403/404)
+- [x] **6.3** Write `app/routers/history.py` — `GET /api/history?lang=&limit=`
+- [x] **6.4** Register vocabulary and history routers in `main.py`
+- [x] **6.5** Verify: OpenAPI docs at `/docs` show all endpoints; vocabulary CRUD works end-to-end
 
 ---
 
 ## Phase 7 — Caching Layer
 
-- [ ] **7.1** Write `app/services/cache.py` — `TTLCache(maxsize=512, ttl=600)` in-memory layer using `cachetools`
-- [ ] **7.2** Implement `get_kanji_cached(char)` — check in-memory cache first, then `kanji_cache` table (filter `expires_at > NOW()`), return data or `None`
-- [ ] **7.3** Implement `set_kanji_cache(char, data)` — write to in-memory cache and upsert into `kanji_cache` with `expires_at = NOW() + 30 days`
-- [ ] **7.4** Wire cache into kanji endpoint: on miss call `jmdict.get_kanji_detail`, populate both cache levels; on hit skip DB query
-- [ ] **7.5** Verify: second request for same kanji is served from in-memory cache (no DB query visible in logs)
+- [x] **7.1** Write `app/services/cache.py` — `TTLCache(maxsize=512, ttl=600)` in-memory layer using `cachetools`
+- [x] **7.2** Implement `get_kanji_cached(char)` — check in-memory cache first, then `kanji_cache` table (filter `expires_at > NOW()`), return data or `None`
+- [x] **7.3** Implement `set_kanji_cache(char, data)` — write to in-memory cache and upsert into `kanji_cache` with `expires_at = NOW() + 30 days`
+- [x] **7.4** Wire cache into kanji endpoint: on miss call `jmdict.get_kanji_detail`, populate both cache levels; on hit skip DB query
+- [x] **7.5** Verify: second request for same kanji is served from in-memory cache (no DB query visible in logs)
 
 ---
 
@@ -119,30 +119,30 @@
 
 ### 9a — Injection protection
 
-- [ ] **9.1** Audit all DB queries — confirm zero raw SQL with user input; every query must go through SQLAlchemy ORM or explicit `text()` with bound parameters
-- [ ] **9.2** Audit search query path — `GET /api/search?q=` passes `q` only as a bound parameter into GIN index lookup, never string-interpolated into SQL
-- [ ] **9.3** Add Pydantic validators on all string inputs that touch the DB: strip null bytes (`\x00`), reject strings that are purely whitespace
-- [ ] **9.4** Add input length caps — `AnalyzeRequest.query` max 500 chars, search `q` max 100 chars, vocabulary `expression` max 100 chars (Pydantic `max_length`)
-- [ ] **9.5** Validate `GET /api/kanji/{char}` path parameter — reject anything that is not a single CJK Unicode character before it reaches the DB
-- [ ] **9.6** Write `tests/test_injection.py` — send payloads like `' OR 1=1--`, `; DROP TABLE users;--`, `<script>`, null bytes to every public endpoint; assert all return 400 or safe data, never 500
+- [x] **9.1** Audit all DB queries — confirm zero raw SQL with user input; every query must go through SQLAlchemy ORM or explicit `text()` with bound parameters
+- [x] **9.2** Audit search query path — `GET /api/search?q=` passes `q` only as a bound parameter into GIN index lookup, never string-interpolated into SQL
+- [x] **9.3** Add Pydantic validators on all string inputs that touch the DB: strip null bytes (`\x00`), reject strings that are purely whitespace
+- [x] **9.4** Add input length caps — `AnalyzeRequest.query` max 500 chars, search `q` max 100 chars, vocabulary `expression` max 100 chars (Pydantic `max_length`)
+- [x] **9.5** Validate `GET /api/kanji/{char}` path parameter — reject anything that is not a single CJK Unicode character before it reaches the DB
+- [x] **9.6** Write `tests/test_injection.py` — send payloads like `' OR 1=1--`, `; DROP TABLE users;--`, `<script>`, null bytes to every public endpoint; assert all return 400 or safe data, never 500
 
 ### 9b — Authentication & access control
 
-- [ ] **9.7** Verify `get_current_user` dependency is applied to every protected route
-- [ ] **9.8** Add ownership check in `DELETE /api/vocabulary/{id}` — raise `403` if `word.user_id != current_user.id`
-- [ ] **9.9** Add startup validation — raise on boot if `SECRET_KEY` is shorter than 32 characters
+- [x] **9.7** Verify `get_current_user` dependency is applied to every protected route
+- [x] **9.8** Add ownership check in `DELETE /api/vocabulary/{id}` — raise `403` if `word.user_id != current_user.id`
+- [x] **9.9** Add startup validation — raise on boot if `SECRET_KEY` is shorter than 32 characters
 
 ### 9c — Transport & headers
 
-- [ ] **9.10** Add `CORSMiddleware` to `main.py` — `allow_origins=settings.ALLOWED_ORIGINS`, `allow_credentials=True`, methods `GET/POST/DELETE` only
-- [ ] **9.11** Add security headers middleware — `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`
+- [x] **9.10** Add `CORSMiddleware` to `main.py` — `allow_origins=settings.ALLOWED_ORIGINS`, `allow_credentials=True`, methods `GET/POST/DELETE` only
+- [x] **9.11** Add security headers middleware — `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`
 
 ### 9d — Rate limiting & dependencies
 
-- [ ] **9.12** Implement Redis rate limiter dependency — 60 req/min anonymous, 120 req/min authenticated; return `HTTP 429` with `Retry-After: 60` header
-- [ ] **9.13** Apply rate limiter to all public-facing routes
-- [ ] **9.14** Add `dependabot.yml` for weekly pip dependency updates
-- [ ] **9.15** Verify: CORS rejects unknown origins; injection payloads return 400; rate limiter returns 429 after threshold; security headers present in every response
+- [x] **9.12** Implement Redis rate limiter dependency — 60 req/min anonymous, 120 req/min authenticated; return `HTTP 429` with `Retry-After: 60` header
+- [x] **9.13** Apply rate limiter to all public-facing routes
+- [x] **9.14** Add `dependabot.yml` for weekly pip dependency updates
+- [x] **9.15** Verify: CORS rejects unknown origins; injection payloads return 400; rate limiter returns 429 after threshold; security headers present in every response
 
 ---
 

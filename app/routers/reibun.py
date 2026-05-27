@@ -1,6 +1,8 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
-router = APIRouter(prefix="/api", tags=["reibun"])
+from app.core.rate_limit import rate_limit
+
+router = APIRouter(prefix="/api", tags=["reibun"], dependencies=[Depends(rate_limit)])
 
 
 @router.get("/reibun/search/{word_id}")
