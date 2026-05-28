@@ -14,6 +14,7 @@ async def reibun_search(
     word_id: int,
     pg: int = Query(1, ge=1, description="Page number"),
     perPage: int = Query(10, ge=1, le=100, description="Items per page"),
+    lang: str = Query("ru", pattern="^(ru|en)$"),
     session: AsyncSession = Depends(get_session),
 ) -> ReibunSearchResponse:
-    return await search_reibun(word_id, session, page=pg, per_page=perPage)
+    return await search_reibun(word_id, session, page=pg, per_page=perPage, lang=lang)

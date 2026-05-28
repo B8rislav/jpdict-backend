@@ -36,10 +36,15 @@ Full reference docs live in [`docs/`](docs/README.md).
 - Python 3.11+
 - [uv](https://docs.astral.sh/uv/getting-started/installation/)
 - Docker + Docker Compose
+- [git-lfs](https://git-lfs.com) — required to fetch the dictionary data files in `data/`
 
 ## Local setup
 
 ```bash
+# 0. Install git-lfs and fetch the data files (once per machine)
+git lfs install
+git lfs pull
+
 # 1. Install dependencies
 uv sync --extra dev
 
@@ -176,3 +181,17 @@ Japanese and Chinese dictionary data is loaded into PostgreSQL from open dataset
 - **Chinese:** CC-CEDICT + HSK wordlists — run `python scripts/import_cedict.py`
 
 Import scripts are idempotent and run automatically on first container start if the tables are empty.
+
+The raw source files live in `data/` and are stored in **Git LFS** (total ~350 MB). Run `git lfs pull` after cloning to download them before running any import script or starting the container.
+
+| File | Description |
+|---|---|
+| `data/JMdict.gz` | JMdict XML — Japanese words, readings, glosses |
+| `data/kanjidic2.xml.gz` | KANJIDIC2 — individual kanji details |
+| `data/kradfile.gz` | KRADFILE — kanji component decomposition |
+| `data/cedict_ts.u8.gz` | CC-CEDICT — Chinese-English dictionary |
+| `data/hsk.json` | HSK 1–6 word lists |
+| `data/jpn_sentences.tsv.bz2` | Tatoeba Japanese sentences |
+| `data/eng_sentences.tsv.bz2` | Tatoeba English sentences |
+| `data/rus_sentences.tsv.bz2` | Tatoeba Russian sentences |
+| `data/tatoeba_links.tar.bz2` | Tatoeba sentence pair links |

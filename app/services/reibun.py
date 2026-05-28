@@ -10,6 +10,7 @@ async def search_reibun(
     session: AsyncSession,
     page: int,
     per_page: int,
+    lang: str = "ru",
 ) -> ReibunSearchResponse:
     # Look up the canonical expression for word_id from jmdict_entries
     expr_row = (
@@ -31,7 +32,7 @@ async def search_reibun(
     if not expression:
         return ReibunSearchResponse(result_count=0, pg=page, perPage=per_page, reibuns=[])
 
-    cached = get_reibun_cached(expression, page, per_page)
+    cached = get_reibun_cached(expression, page, per_page, lang)
     if cached is not None:
         return cached
 
@@ -63,19 +64,19 @@ async def search_reibun(
 
     reibuns: list[Reibun] = []
     for row in rows:
-        if row["translation_ru"]:
-            translation = row["translation_ru"]
-            lang = "ru"
+        if lang == "en":
+            translation = row["translation_en"] or row["translation_ru"] or ""
+            translation_lang = "en" if row["translation_en"] else "ru"
         else:
-            translation = row["translation_en"] or ""
-            lang = "en"
+            translation = row["translation_ru"] or row["translation_en"] or ""
+            translation_lang = "ru" if row["translation_ru"] else "en"
         reibuns.append(
             Reibun(
                 id=row["id"],
                 sentence_jp=row["sentence_jp"],
                 reading_jp=row["reading_jp"],
                 translation=translation,
-                translation_lang=lang,
+                translation_lang=translation_lang,
             )
         )
 
@@ -85,5 +86,5 @@ async def search_reibun(
         perPage=per_page,
         reibuns=reibuns,
     )
-    set_reibun_cache(expression, page, per_page, response)
+    set_reibun_cache(expression, page, per_page, response, lang)
     return response

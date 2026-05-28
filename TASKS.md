@@ -257,4 +257,4 @@
 ### 15e — Tests & verification
 
 - [x] **15.10** Extend `tests/test_search.py` — assert `GET /api/search?q=cat&lang=jp` returns ≥ 1 entry whose headword/reading corresponds to `猫`; `q=a cat&lang=jp` returns the same entry (article stripped); `q=кошка&lang=jp` returns the same entry (Russian gloss path); `q=cat&lang=cn` returns ≥ 1 entry whose simplified form is `猫`
-- [ ] **15.11** Verify: `EXPLAIN ANALYZE` on a representative reverse query shows the GIN trigram index is used (no full table scan); response time on a warm cache is under ~50 ms for typical single-word queries; frontend "a cat" search renders a result list instead of an empty state
+- [x] **15.11** Verify: `EXPLAIN ANALYZE` on a representative reverse query shows the GIN trigram index is used (no full table scan); response time on a warm cache is under ~50 ms for typical single-word queries; frontend "a cat" search renders a result list instead of an empty state

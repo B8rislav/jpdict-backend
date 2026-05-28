@@ -20,6 +20,7 @@ router = APIRouter(prefix="/api", tags=["search"], dependencies=[Depends(rate_li
 async def search(
     q: Annotated[SafeStr, Query(min_length=1, max_length=100)],
     lang: str = Query(..., pattern="^(jp|cn|cn_traditional)$"),
+    def_lang: str = Query("ru", pattern="^(ru|en)$"),
     pagination: Paginator = Depends(paginate),
     session: AsyncSession = Depends(get_session),
 ) -> Page[DictEntry]:
@@ -27,11 +28,11 @@ async def search(
         if classify(q, lang) == QueryType.REVERSE:
             normalized = normalize_reverse_query(q)
             items, total = await jmdict.search_jmdict_reverse(
-                normalized, session, limit=pagination.per_page, offset=pagination.offset
+                normalized, session, limit=pagination.per_page, offset=pagination.offset, def_lang=def_lang
             )
         else:
             items, total = await jmdict.search_jmdict(
-                q, session, limit=pagination.per_page, offset=pagination.offset
+                q, session, limit=pagination.per_page, offset=pagination.offset, def_lang=def_lang
             )
         return Page.build(items, total, pagination.page, pagination.per_page)
 

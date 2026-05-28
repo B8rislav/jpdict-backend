@@ -13,14 +13,14 @@ _mem_cache: TTLCache = TTLCache(maxsize=512, ttl=600)
 _reibun_cache: TTLCache = TTLCache(maxsize=1024, ttl=600)
 
 
-def get_reibun_cached(expression: str, page: int, per_page: int) -> ReibunSearchResponse | None:
-    return _reibun_cache.get((expression, page, per_page))
+def get_reibun_cached(expression: str, page: int, per_page: int, lang: str = "ru") -> ReibunSearchResponse | None:
+    return _reibun_cache.get((expression, page, per_page, lang))
 
 
 def set_reibun_cache(
-    expression: str, page: int, per_page: int, response: ReibunSearchResponse
+    expression: str, page: int, per_page: int, response: ReibunSearchResponse, lang: str = "ru"
 ) -> None:
-    _reibun_cache[(expression, page, per_page)] = response
+    _reibun_cache[(expression, page, per_page, lang)] = response
 
 
 async def get_kanji_cached(char: str, session: AsyncSession) -> KanjiCard | None:

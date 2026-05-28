@@ -6,7 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.rate_limit import rate_limit
 from app.db.database import get_session
-from app.schemas.kanji import KanjiCard
+from app.schemas.kanji import HanziCard, KanjiCard
+from app.services.pinyin import convert_pinyin
 from app.schemas.validators import SafeStr
 from app.services import jmdict
 from app.services import cache as cache_svc
@@ -84,18 +85,63 @@ async def kanji_search(
 @router.get("/kanji/{char}", response_model=KanjiCard)
 async def kanji_detail(
     char: str,
+    def_lang: str = Query("ru", pattern="^(ru|en)$"),
     session: AsyncSession = Depends(get_session),
 ):
     if len(char) != 1 or not _is_cjk(char):
         raise HTTPException(status_code=400, detail="Single CJK character required")
 
     result = await cache_svc.get_kanji_cached(char, session)
-    if result is not None:
-        return result
-
-    result = await jmdict.get_kanji_detail(char, session)
     if result is None:
-        raise HTTPException(status_code=404, detail="Kanji not found")
+        result = await jmdict.get_kanji_detail(char, session)
+        if result is None:
+            raise HTTPException(status_code=404, detail="Kanji not found")
+        await cache_svc.set_kanji_cache(char, result, session)
 
-    await cache_svc.set_kanji_cache(char, result, session)
-    return result
+    if def_lang == "en":
+        meanings = result.meanings_en if result.meanings_en else result.meanings_ru or result.meanings
+    else:
+        meanings = result.meanings_ru if result.meanings_ru else result.meanings
+    return result.model_copy(update={"meanings": meanings})
+
+
+@router.get("/hanzi/{char}", response_model=HanziCard)
+async def hanzi_detail(
+    char: str,
+    def_lang: str = Query("ru", pattern="^(ru|en)$"),
+    session: AsyncSession = Depends(get_session),
+):
+    """Look up a single Chinese character from CC-CEDICT data."""
+    if len(char) != 1 or not _is_cjk(char):
+        raise HTTPException(status_code=400, detail="Single CJK character required")
+
+    row = (
+        await session.execute(
+            text(
+                """
+                SELECT traditional, simplified, pinyin, definitions, hsk_level
+                FROM cedict_entries
+                WHERE simplified = :char OR traditional = :char
+                ORDER BY (simplified = :char) DESC
+                LIMIT 1
+                """
+            ),
+            {"char": char},
+        )
+    ).mappings().first()
+
+    if row is None:
+        raise HTTPException(status_code=404, detail="Hanzi not found")
+
+    defs: dict = row["definitions"] or {}
+    meanings: list[str] = defs.get(def_lang) or defs.get("en") or []
+
+    traditional = row["traditional"]
+    simplified = row["simplified"]
+    return HanziCard(
+        character=simplified or traditional,
+        pinyin=convert_pinyin(row["pinyin"]),
+        meanings=meanings,
+        hsk_level=row["hsk_level"],
+        traditional=traditional if traditional != simplified else None,
+    )

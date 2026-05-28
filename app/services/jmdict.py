@@ -58,6 +58,7 @@ async def search_jmdict(
     *,
     limit: int = 20,
     offset: int = 0,
+    def_lang: str = "ru",
 ) -> tuple[list[DictEntry], int]:
     if _has_japanese(query):
         where = "(:val = ANY(kanji_forms)) OR (:val = ANY(reading_forms))"
@@ -104,7 +105,7 @@ async def search_jmdict(
                 pos = sense["pos"][0]
             all_ru.extend(sense.get("ru") or [])
             all_en.extend(sense.get("en") or [])
-        defs = all_ru if all_ru else all_en
+        defs = (all_en if all_en else all_ru) if def_lang == "en" else (all_ru if all_ru else all_en)
 
         results.append(
             DictEntry(
@@ -127,6 +128,7 @@ async def search_jmdict_reverse(
     *,
     limit: int = 20,
     offset: int = 0,
+    def_lang: str = "ru",
 ) -> tuple[list[DictEntry], int]:
     col = "senses_glosses_ru" if normalized.script == "ru" else "senses_glosses_en"
     params = {
@@ -185,7 +187,7 @@ async def search_jmdict_reverse(
                 pos = sense["pos"][0]
             all_ru.extend(sense.get("ru") or [])
             all_en.extend(sense.get("en") or [])
-        defs = all_ru if all_ru else all_en
+        defs = (all_en if all_en else all_ru) if def_lang == "en" else (all_ru if all_ru else all_en)
 
         results.append(
             DictEntry(
@@ -224,6 +226,7 @@ async def get_kanji_detail(char: str, session: AsyncSession) -> KanjiCard | None
     radicals = [radical_char] if radical_char else []
     jlpt = f"N{row['jlpt_level']}" if row["jlpt_level"] else None
     meanings_ru = row["meanings_ru"] or []
+    meanings_en = row["meanings_en"] or []
 
     return KanjiCard(
         character=char,
@@ -231,7 +234,8 @@ async def get_kanji_detail(char: str, session: AsyncSession) -> KanjiCard | None
         radicals=radicals,
         on_readings=row["on_readings"] or [],
         kun_readings=row["kun_readings"] or [],
-        meanings=meanings_ru if meanings_ru else row["meanings_en"] or [],
+        meanings=meanings_ru if meanings_ru else meanings_en,
         meanings_ru=meanings_ru,
+        meanings_en=meanings_en,
         jlpt_level=jlpt,
     )
