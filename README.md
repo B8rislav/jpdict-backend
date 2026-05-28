@@ -2,6 +2,21 @@
 
 REST API for a Japanese and Chinese language learning web application. Handles text analysis, dictionary search, vocabulary management, and AI-powered explanations.
 
+## Documentation
+
+Full reference docs live in [`docs/`](docs/README.md).
+
+| Doc | What it covers |
+|---|---|
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Component diagram and request lifecycle |
+| [STRUCTURE.md](docs/STRUCTURE.md) | Every file in the repo with its role |
+| [RUNBOOK.md](docs/RUNBOOK.md) | Rebuild DB, rotate keys, drain cache, tail logs |
+| [API.md](docs/API.md) | All endpoints with schemas and line numbers |
+| [DATABASE.md](docs/DATABASE.md) | Tables, columns, indexes, FK relations |
+| [NLP.md](docs/NLP.md) | SudachiPy / jieba pipeline and caveats |
+| [SECURITY.md](docs/SECURITY.md) | Auth, rate limiting, headers, threat model |
+| [DATA_SOURCES.md](docs/DATA_SOURCES.md) | Corpus licenses and import instructions |
+
 ## Tech stack
 
 | Layer | Technology |

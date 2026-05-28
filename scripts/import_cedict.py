@@ -53,11 +53,18 @@ def parse_cedict(path: Path):
             }
 
 
+def _flat_defs(definitions: dict, lang: str) -> str | None:
+    parts = definitions.get(lang) or []
+    return "\n".join(parts) if parts else None
+
+
 async def insert_batch(conn: asyncpg.Connection, batch: list[dict]) -> None:
     await conn.executemany(
         """
-        INSERT INTO cedict_entries (traditional, simplified, pinyin, definitions)
-        VALUES ($1, $2, $3, $4::jsonb)
+        INSERT INTO cedict_entries
+            (traditional, simplified, pinyin, definitions,
+             definitions_flat_en, definitions_flat_ru)
+        VALUES ($1, $2, $3, $4::jsonb, $5, $6)
         """,
         [
             (
@@ -65,6 +72,8 @@ async def insert_batch(conn: asyncpg.Connection, batch: list[dict]) -> None:
                 e["simplified"],
                 e["pinyin"],
                 json.dumps(e["definitions"], ensure_ascii=False),
+                _flat_defs(e["definitions"], "en"),
+                _flat_defs(e["definitions"], "ru"),
             )
             for e in batch
         ],

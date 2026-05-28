@@ -10,6 +10,8 @@ from app.schemas.page import Page
 from app.schemas.search import DictEntry
 from app.schemas.validators import SafeStr
 from app.services import cedict, jmdict
+from app.services.nlp.classifier import QueryType, classify
+from app.services.search.normalize import normalize_reverse_query
 
 router = APIRouter(prefix="/api", tags=["search"], dependencies=[Depends(rate_limit)])
 
@@ -22,14 +24,26 @@ async def search(
     session: AsyncSession = Depends(get_session),
 ) -> Page[DictEntry]:
     if lang == "jp":
-        items, total = await jmdict.search_jmdict(
-            q, session, limit=pagination.per_page, offset=pagination.offset
-        )
+        if classify(q, lang) == QueryType.REVERSE:
+            normalized = normalize_reverse_query(q)
+            items, total = await jmdict.search_jmdict_reverse(
+                normalized, session, limit=pagination.per_page, offset=pagination.offset
+            )
+        else:
+            items, total = await jmdict.search_jmdict(
+                q, session, limit=pagination.per_page, offset=pagination.offset
+            )
         return Page.build(items, total, pagination.page, pagination.per_page)
 
-    raw, total = await cedict.search_cedict(
-        q, lang, session, limit=pagination.per_page, offset=pagination.offset
-    )
+    if classify(q, lang) == QueryType.REVERSE:
+        normalized = normalize_reverse_query(q)
+        raw, total = await cedict.search_cedict_reverse(
+            normalized, lang, session, limit=pagination.per_page, offset=pagination.offset
+        )
+    else:
+        raw, total = await cedict.search_cedict(
+            q, lang, session, limit=pagination.per_page, offset=pagination.offset
+        )
     items = [
         DictEntry(
             id=str(entry["id"]),

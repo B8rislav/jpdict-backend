@@ -42,6 +42,25 @@ _CN_RAW = {
     "hsk_level": 1,
 }
 
+_NEKO_JP = DictEntry(
+    id="300",
+    lang="jp",
+    headword="猫",
+    reading="ねこ",
+    definitions=["cat", "feline"],
+    jlpt_level=5,
+    is_common=True,
+)
+
+_NEKO_CN_RAW = {
+    "id": 301,
+    "traditional": "貓",
+    "simplified": "猫",
+    "pinyin": "mao1",
+    "definitions": ["cat"],
+    "hsk_level": 2,
+}
+
 
 # ---------------------------------------------------------------------------
 # JP search hits jmdict
@@ -190,3 +209,149 @@ async def test_search_empty_result_returns_page(
     data = r.json()
     assert data["total"] == 0
     assert data["items"] == []
+
+
+# ---------------------------------------------------------------------------
+# Reverse search — JP (English → Japanese)
+# ---------------------------------------------------------------------------
+
+
+async def test_reverse_jp_cat_returns_neko(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def _fake(normalized, s, *, limit, offset):
+        return [_NEKO_JP], 1
+
+    monkeypatch.setattr("app.routers.search.jmdict.search_jmdict_reverse", _fake)
+    r = await client.get("/api/search", params={"q": "cat", "lang": "jp"})
+    assert r.status_code == 200
+    items = r.json()["items"]
+    assert len(items) >= 1
+    assert items[0]["headword"] == "猫"
+
+
+async def test_reverse_jp_article_stripped(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list = []
+
+    async def _fake(normalized, s, *, limit, offset):
+        calls.append(normalized.text)
+        return [_NEKO_JP], 1
+
+    monkeypatch.setattr("app.routers.search.jmdict.search_jmdict_reverse", _fake)
+    await client.get("/api/search", params={"q": "a cat", "lang": "jp"})
+    assert calls == ["cat"]
+
+
+async def test_reverse_jp_a_cat_same_result_as_cat(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def _fake(normalized, s, *, limit, offset):
+        return [_NEKO_JP], 1
+
+    monkeypatch.setattr("app.routers.search.jmdict.search_jmdict_reverse", _fake)
+    r_bare = await client.get("/api/search", params={"q": "cat", "lang": "jp"})
+    r_article = await client.get("/api/search", params={"q": "a cat", "lang": "jp"})
+    assert r_bare.json()["items"][0]["headword"] == r_article.json()["items"][0]["headword"]
+
+
+async def test_reverse_jp_russian_uses_ru_script(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list = []
+
+    async def _fake(normalized, s, *, limit, offset):
+        calls.append(normalized.script)
+        return [_NEKO_JP], 1
+
+    monkeypatch.setattr("app.routers.search.jmdict.search_jmdict_reverse", _fake)
+    r = await client.get("/api/search", params={"q": "кошка", "lang": "jp"})
+    assert r.status_code == 200
+    assert calls == ["ru"]
+
+
+async def test_reverse_jp_russian_returns_entry(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def _fake(normalized, s, *, limit, offset):
+        return [_NEKO_JP], 1
+
+    monkeypatch.setattr("app.routers.search.jmdict.search_jmdict_reverse", _fake)
+    r = await client.get("/api/search", params={"q": "кошка", "lang": "jp"})
+    items = r.json()["items"]
+    assert len(items) >= 1
+    assert items[0]["headword"] == "猫"
+
+
+# ---------------------------------------------------------------------------
+# Reverse search — CN (English → Chinese)
+# ---------------------------------------------------------------------------
+
+
+async def test_reverse_cn_cat_calls_cedict_reverse(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    called = {}
+
+    async def _fake(normalized, lang, s, *, limit, offset):
+        called["text"] = normalized.text
+        called["lang"] = lang
+        return [_NEKO_CN_RAW], 1
+
+    monkeypatch.setattr("app.routers.search.cedict.search_cedict_reverse", _fake)
+    r = await client.get("/api/search", params={"q": "cat", "lang": "cn"})
+    assert r.status_code == 200
+    assert called["text"] == "cat"
+    assert called["lang"] == "cn"
+
+
+async def test_reverse_cn_cat_returns_neko(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def _fake(normalized, lang, s, *, limit, offset):
+        return [_NEKO_CN_RAW], 1
+
+    monkeypatch.setattr("app.routers.search.cedict.search_cedict_reverse", _fake)
+    r = await client.get("/api/search", params={"q": "cat", "lang": "cn"})
+    items = r.json()["items"]
+    assert len(items) >= 1
+    assert items[0]["headword"] == "猫"
+
+
+async def test_reverse_cn_traditional_routes_to_reverse(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    called = {}
+
+    async def _fake(normalized, lang, s, *, limit, offset):
+        called["lang"] = lang
+        return [_NEKO_CN_RAW], 1
+
+    monkeypatch.setattr("app.routers.search.cedict.search_cedict_reverse", _fake)
+    await client.get("/api/search", params={"q": "cat", "lang": "cn_traditional"})
+    assert called.get("lang") == "cn_traditional"
+
+
+# ---------------------------------------------------------------------------
+# Forward paths are unaffected by reverse routing
+# ---------------------------------------------------------------------------
+
+
+async def test_forward_jp_cjk_query_does_not_use_reverse(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    reverse_called = {}
+
+    async def _fake_reverse(normalized, s, *, limit, offset):
+        reverse_called["hit"] = True
+        return [], 0
+
+    async def _fake_forward(q, s, *, limit, offset):
+        return [_JP_ENTRY], 1
+
+    monkeypatch.setattr("app.routers.search.jmdict.search_jmdict_reverse", _fake_reverse)
+    monkeypatch.setattr("app.routers.search.jmdict.search_jmdict", _fake_forward)
+    r = await client.get("/api/search", params={"q": "食べる", "lang": "jp"})
+    assert r.status_code == 200
+    assert "hit" not in reverse_called

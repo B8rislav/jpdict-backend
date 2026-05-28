@@ -117,12 +117,18 @@ def parse_jmdict(path: Path):
             }
 
 
+def _flat_glosses(senses: list[dict], lang: str) -> str | None:
+    parts = [g for s in senses for g in (s.get(lang) or [])]
+    return "\n".join(parts) if parts else None
+
+
 async def insert_batch(conn: asyncpg.Connection, batch: list[dict]) -> None:
     await conn.executemany(
         """
         INSERT INTO jmdict_entries
-            (entry_id, kanji_forms, reading_forms, senses, jlpt_level, common)
-        VALUES ($1, $2, $3, $4::jsonb, $5, $6)
+            (entry_id, kanji_forms, reading_forms, senses, jlpt_level, common,
+             senses_glosses_en, senses_glosses_ru)
+        VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8)
         ON CONFLICT (entry_id) DO NOTHING
         """,
         [
@@ -133,6 +139,8 @@ async def insert_batch(conn: asyncpg.Connection, batch: list[dict]) -> None:
                 json.dumps(e["senses"], ensure_ascii=False),
                 e["jlpt_level"],
                 e["common"],
+                _flat_glosses(e["senses"], "en"),
+                _flat_glosses(e["senses"], "ru"),
             )
             for e in batch
         ],

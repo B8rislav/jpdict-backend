@@ -1,4 +1,4 @@
-.PHONY: dev migrate logs stop build import-jmdict import-kanjidic import-kradfile import-cedict import-hsk import-all
+.PHONY: dev migrate logs stop build import-jmdict import-kanjidic import-kradfile import-cedict import-hsk import-kanji-ru import-all
 
 dev:
 	docker compose up db cache -d
@@ -38,5 +38,14 @@ import-cedict:
 import-hsk:
 	uv run --env-file .env python scripts/import_hsk.py
 
+# Download Yarxi SQLite DB and populate kanjidic_entries.meanings_ru with Russian glosses
+# Run after import-kanjidic
+import-kanji-ru:
+	uv run --env-file .env python scripts/import_kanji_ru.py
+
+# Download Tatoeba per-language sentence dumps and import Japanese+Russian/English pairs into reibun_entries
+import-reibun:
+	uv run --env-file .env python scripts/import_tatoeba.py
+
 # Run all imports in correct order
-import-all: import-jmdict import-kanjidic import-kradfile import-cedict import-hsk
+import-all: import-jmdict import-kanjidic import-kradfile import-cedict import-hsk import-kanji-ru import-reibun

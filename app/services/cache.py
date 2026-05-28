@@ -5,8 +5,22 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.schemas.kanji import KanjiCard
+from app.schemas.reibun import ReibunSearchResponse
 
 _mem_cache: TTLCache = TTLCache(maxsize=512, ttl=600)
+
+# (expression, page, per_page) → ReibunSearchResponse; 10-minute TTL, 1024 slots
+_reibun_cache: TTLCache = TTLCache(maxsize=1024, ttl=600)
+
+
+def get_reibun_cached(expression: str, page: int, per_page: int) -> ReibunSearchResponse | None:
+    return _reibun_cache.get((expression, page, per_page))
+
+
+def set_reibun_cache(
+    expression: str, page: int, per_page: int, response: ReibunSearchResponse
+) -> None:
+    _reibun_cache[(expression, page, per_page)] = response
 
 
 async def get_kanji_cached(char: str, session: AsyncSession) -> KanjiCard | None:

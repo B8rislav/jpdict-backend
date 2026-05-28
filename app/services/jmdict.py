@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.schemas.kanji import KanjiCard
 from app.schemas.search import DictEntry
+from app.services.search.normalize import NormalizedQuery
 
 # Kangxi radical number → representative character
 KANGXI: dict[int, str] = {
@@ -120,13 +121,94 @@ async def search_jmdict(
     return results, total_count
 
 
+async def search_jmdict_reverse(
+    normalized: NormalizedQuery,
+    session: AsyncSession,
+    *,
+    limit: int = 20,
+    offset: int = 0,
+) -> tuple[list[DictEntry], int]:
+    col = "senses_glosses_ru" if normalized.script == "ru" else "senses_glosses_en"
+    params = {
+        "text": normalized.text,
+        "lim": limit,
+        "off": offset,
+    }
+
+    # Rank 0: text is an entire gloss line (exact match)
+    # Rank 1: text appears as a complete word within a gloss (word-boundary)
+    # Rank 2: any gloss line starts with text (prefix fallback)
+    where = (
+        f"{col} ~* ('(?:^|\\n)' || :text || '(?:\\n|$)')"
+        f" OR {col} ~* ('\\m' || :text || '\\M')"
+        f" OR {col} ~* ('(?:^|\\n)' || :text)"
+    )
+    rank_expr = (
+        f"CASE"
+        f" WHEN {col} ~* ('(?:^|\\n)' || :text || '(?:\\n|$)') THEN 0"
+        f" WHEN {col} ~* ('\\m' || :text || '\\M') THEN 1"
+        f" ELSE 2"
+        f" END"
+    )
+
+    rows = (
+        await session.execute(
+            text(
+                f"""
+                SELECT entry_id, kanji_forms, reading_forms, senses, jlpt_level, common,
+                       {rank_expr} AS rank
+                FROM jmdict_entries
+                WHERE {where}
+                ORDER BY rank ASC, common DESC, jlpt_level ASC NULLS LAST
+                LIMIT :lim OFFSET :off
+                """
+            ),
+            params,
+        )
+    ).mappings().all()
+
+    total_count: int = (
+        await session.execute(
+            text(f"SELECT COUNT(*) FROM jmdict_entries WHERE {where}"),
+            {"text": normalized.text},
+        )
+    ).scalar_one()
+
+    results: list[DictEntry] = []
+    for row in rows:
+        senses = row["senses"] or []
+        pos: str | None = None
+        all_ru: list[str] = []
+        all_en: list[str] = []
+        for sense in senses:
+            if not pos and sense.get("pos"):
+                pos = sense["pos"][0]
+            all_ru.extend(sense.get("ru") or [])
+            all_en.extend(sense.get("en") or [])
+        defs = all_ru if all_ru else all_en
+
+        results.append(
+            DictEntry(
+                id=str(row["entry_id"]),
+                lang="jp",
+                headword=row["kanji_forms"][0] if row["kanji_forms"] else None,
+                reading=row["reading_forms"][0] if row["reading_forms"] else None,
+                definitions=defs,
+                part_of_speech=pos,
+                jlpt_level=row["jlpt_level"],
+                is_common=bool(row["common"]),
+            )
+        )
+    return results, total_count
+
+
 async def get_kanji_detail(char: str, session: AsyncSession) -> KanjiCard | None:
     row = (
         await session.execute(
             text(
                 """
                 SELECT character, stroke_count, jlpt_level,
-                       on_readings, kun_readings, meanings_en, radical_number
+                       on_readings, kun_readings, meanings_en, meanings_ru, radical_number
                 FROM kanjidic_entries
                 WHERE character = :c
                 """
@@ -141,6 +223,7 @@ async def get_kanji_detail(char: str, session: AsyncSession) -> KanjiCard | None
     radical_char = KANGXI.get(row["radical_number"] or 0, "")
     radicals = [radical_char] if radical_char else []
     jlpt = f"N{row['jlpt_level']}" if row["jlpt_level"] else None
+    meanings_ru = row["meanings_ru"] or []
 
     return KanjiCard(
         character=char,
@@ -148,6 +231,7 @@ async def get_kanji_detail(char: str, session: AsyncSession) -> KanjiCard | None
         radicals=radicals,
         on_readings=row["on_readings"] or [],
         kun_readings=row["kun_readings"] or [],
-        meanings=row["meanings_en"] or [],
+        meanings=meanings_ru if meanings_ru else row["meanings_en"] or [],
+        meanings_ru=meanings_ru,
         jlpt_level=jlpt,
     )
