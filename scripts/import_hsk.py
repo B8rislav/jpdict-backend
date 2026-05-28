@@ -2,17 +2,14 @@
 """
 Populate hsk_level and Russian definitions on cedict_entries.
 
-Downloads hsk.json from LiudmilaLV/json_hsk (MIT) which contains all
-5,000 HSK 1-6 words with English and Russian translations.
+Reads hsk.json from the data/ directory (LiudmilaLV/json_hsk, MIT licence)
+which contains all 5,000 HSK 1-6 words with English and Russian translations.
 
 For each entry matching cedict_entries.simplified:
   - sets hsk_level
-  - sets definitions->>'ru' from the HSK Russian translations (the only
-    open bilingual CN-RU source available; CC-CEDICT only has English)
+  - sets definitions->>'ru' from the HSK Russian translations
 
 Safe to re-run.
-
-Source: https://github.com/LiudmilaLV/json_hsk
 
 Usage:
     DATABASE_URL=postgresql://user:pass@host/db uv run python scripts/import_hsk.py
@@ -26,26 +23,11 @@ import sys
 from pathlib import Path
 
 import asyncpg
-import httpx
 
 DATA_DIR = Path(__file__).parent.parent / "data"
-HSK_URL = "https://raw.githubusercontent.com/LiudmilaLV/json_hsk/master/hsk.json"
 HSK_PATH = DATA_DIR / "hsk.json"
 
 BATCH_SIZE = 500
-
-
-async def download(url: str, dest: Path) -> None:
-    if dest.exists():
-        print(f"  cached {dest.name}")
-        return
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    print(f"  downloading {url} ...")
-    async with httpx.AsyncClient(follow_redirects=True, timeout=60) as client:
-        resp = await client.get(url)
-        resp.raise_for_status()
-        dest.write_bytes(resp.content)
-    print(f"  saved {dest.name} ({dest.stat().st_size // 1024} KB)")
 
 
 def load_hsk(path: Path) -> list[dict]:
@@ -89,7 +71,8 @@ async def main() -> None:
         sys.exit("ERROR: DATABASE_URL not set")
     db_url = db_url.replace("postgresql+asyncpg://", "postgresql://")
 
-    await download(HSK_URL, HSK_PATH)
+    if not HSK_PATH.exists():
+        sys.exit(f"ERROR: {HSK_PATH} not found — place hsk.json in the data/ directory")
 
     entries = load_hsk(HSK_PATH)
     if not entries:

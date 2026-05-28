@@ -48,13 +48,49 @@ API is available at `http://localhost:8000`. Interactive docs at `http://localho
 | `make stop` | Stop Docker containers |
 | `make build` | Build and run everything in Docker |
 
-## Running with Docker
+## Running with Docker (development)
 
 ```bash
 docker compose up --build
 ```
 
 Starts `db`, `cache`, and `backend`. Migrations run automatically on container start.
+
+## Running in production
+
+```bash
+# Required — set all variables in your shell or a secrets manager before starting
+export POSTGRES_DB=jpdict
+export POSTGRES_USER=postgres
+export POSTGRES_PASSWORD=<strong-password>
+export DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+export REDIS_URL=redis://cache:6379/0
+export SECRET_KEY=<random-string-at-least-32-chars>
+export OPENROUTER_API_KEY=<your-key>
+export ALLOWED_ORIGINS=https://your-frontend-domain.com
+# Frontend
+export NEXT_PUBLIC_BACKEND_URL=https://api.your-domain.com
+export NEXT_PUBLIC_API_KEY=<optional-public-key>
+export OPENROUTER_KEY=<same-openrouter-key>
+export JWT_SECRET=<same-as-SECRET_KEY-or-separate>
+
+docker compose -f docker-compose.prod.yml up --build -d
+```
+
+On first boot the container runs migrations and all dictionary imports automatically, then starts uvicorn with 4 workers. Subsequent starts skip the imports (tables already populated).
+
+## Importing dictionary data manually
+
+The import scripts are also available as Makefile targets and run idempotently (no-op when the target table already has rows):
+
+```bash
+make import-jmdict    # JMdict — Japanese words + JLPT levels
+make import-kanjidic  # KANJIDIC2 — kanji stroke count, readings, grade
+make import-kradfile  # KRADFILE — kanji component decomposition (run after kanjidic)
+make import-cedict    # CC-CEDICT — Chinese-English dictionary
+make import-hsk       # HSK 1-6 levels (run after cedict)
+make import-all       # All of the above in the correct order
+```
 
 ## Environment variables
 

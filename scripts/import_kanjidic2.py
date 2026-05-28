@@ -2,12 +2,8 @@
 """
 Import KANJIDIC2 into kanjidic_entries.
 
-Downloads kanjidic2.xml.gz from EDRDG and inserts ~13,000 kanji records with:
-  - stroke count, JLPT level (N1-N5), school grade, Joyo frequency rank
-  - on-readings (音読み), kun-readings (訓読み)
-  - English meanings
-  - classical radical number
-
+Reads kanjidic2.xml.gz from the data/ directory and inserts ~13,000 kanji
+records with stroke count, JLPT level, grade, readings, and meanings.
 Run import_kradfile.py afterwards to populate the components[] column.
 
 Usage:
@@ -22,29 +18,12 @@ import sys
 from pathlib import Path
 
 import asyncpg
-import httpx
 from lxml import etree
 
 DATA_DIR = Path(__file__).parent.parent / "data"
-KANJIDIC_URL = "http://www.edrdg.org/kanjidic/kanjidic2.xml.gz"
 KANJIDIC_PATH = DATA_DIR / "kanjidic2.xml.gz"
 
 BATCH_SIZE = 200
-
-
-async def download(url: str, dest: Path) -> None:
-    if dest.exists():
-        print(f"  cached {dest.name}")
-        return
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    print(f"  downloading {url} ...")
-    async with httpx.AsyncClient(follow_redirects=True, timeout=300) as client:
-        async with client.stream("GET", url) as resp:
-            resp.raise_for_status()
-            with open(dest, "wb") as f:
-                async for chunk in resp.aiter_bytes(65536):
-                    f.write(chunk)
-    print(f"  saved {dest.name} ({dest.stat().st_size // 1024} KB)")
 
 
 def parse_kanjidic2(path: Path):
@@ -200,7 +179,8 @@ async def main() -> None:
         sys.exit("ERROR: DATABASE_URL not set")
     db_url = db_url.replace("postgresql+asyncpg://", "postgresql://")
 
-    await download(KANJIDIC_URL, KANJIDIC_PATH)
+    if not KANJIDIC_PATH.exists():
+        sys.exit(f"ERROR: {KANJIDIC_PATH} not found — place kanjidic2.xml.gz in the data/ directory")
 
     conn = await asyncpg.connect(db_url)
     try:

@@ -10,7 +10,10 @@ RUN uv sync --frozen --no-dev
 COPY app/ ./app/
 COPY alembic/ ./alembic/
 COPY alembic.ini ./
+COPY scripts/ ./scripts/
+COPY data/ ./data/
 COPY entrypoint.sh ./
+COPY log_config.json ./
 
 RUN chmod +x entrypoint.sh
 

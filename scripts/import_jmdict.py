@@ -2,9 +2,8 @@
 """
 Import JMdict into jmdict_entries.
 
-Downloads the full multilingual JMdict (Japanese-English + Russian glosses)
-from EDRDG and bulk-inserts into PostgreSQL. Idempotent: skips if table
-already has rows.
+Reads JMdict.gz from the data/ directory and bulk-inserts into PostgreSQL.
+Idempotent: skips if table already has rows.
 
 Usage:
     DATABASE_URL=postgresql://user:pass@host/db uv run python scripts/import_jmdict.py
@@ -19,11 +18,9 @@ import sys
 from pathlib import Path
 
 import asyncpg
-import httpx
 from lxml import etree
 
 DATA_DIR = Path(__file__).parent.parent / "data"
-JMDICT_URL = "http://ftp.edrdg.org/pub/Nihongo/JMdict.gz"
 JMDICT_PATH = DATA_DIR / "JMdict.gz"
 
 XML_LANG = "{http://www.w3.org/XML/1998/namespace}lang"
@@ -41,21 +38,6 @@ JLPT_MISC = {
 COMMON_PRIOS = ("ichi1", "news1", "spec1", "gai1")
 
 BATCH_SIZE = 500
-
-
-async def download(url: str, dest: Path) -> None:
-    if dest.exists():
-        print(f"  cached {dest.name}")
-        return
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    print(f"  downloading {url} ...")
-    async with httpx.AsyncClient(follow_redirects=True, timeout=300) as client:
-        async with client.stream("GET", url) as resp:
-            resp.raise_for_status()
-            with open(dest, "wb") as f:
-                async for chunk in resp.aiter_bytes(65536):
-                    f.write(chunk)
-    print(f"  saved {dest.name} ({dest.stat().st_size // 1024} KB)")
 
 
 def _is_common(elem: etree._Element) -> bool:
@@ -164,7 +146,8 @@ async def main() -> None:
     # asyncpg expects postgresql:// not postgresql+asyncpg://
     db_url = db_url.replace("postgresql+asyncpg://", "postgresql://")
 
-    await download(JMDICT_URL, JMDICT_PATH)
+    if not JMDICT_PATH.exists():
+        sys.exit(f"ERROR: {JMDICT_PATH} not found — place JMdict.gz in the data/ directory")
 
     conn = await asyncpg.connect(db_url)
     try:

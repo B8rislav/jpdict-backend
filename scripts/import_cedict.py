@@ -2,15 +2,12 @@
 """
 Import CC-CEDICT into cedict_entries (English definitions).
 
-Downloads cedict_ts.u8.gz from MDBG, parses line-by-line with regex, and
-bulk-inserts into PostgreSQL. Idempotent: skips if table already has rows.
+Reads cedict_ts.u8.gz from the data/ directory, parses line-by-line with
+regex, and bulk-inserts into PostgreSQL. Idempotent: skips if table already
+has rows.
 
 CC-CEDICT line format:
     Traditional Simplified [pin1 yin1] /definition 1/definition 2/.../
-
-Stores definitions as JSONB: {"en": [...], "ru": []} — mirroring the
-senses field in jmdict_entries. "ru" is left empty and can be populated
-later from a Chinese-Russian dictionary source (e.g. БКРС).
 
 Usage:
     DATABASE_URL=postgresql://user:pass@host/db uv run python scripts/import_cedict.py
@@ -26,31 +23,14 @@ import sys
 from pathlib import Path
 
 import asyncpg
-import httpx
 
 DATA_DIR = Path(__file__).parent.parent / "data"
-CEDICT_URL = "https://www.mdbg.net/chinese/export/cedict/cedict_1_0_ts_utf-8_mdbg.txt.gz"
 CEDICT_PATH = DATA_DIR / "cedict_ts.u8.gz"
 
 # Traditional  Simplified  [pinyin]  /def1/def2/.../
 _LINE_RE = re.compile(r"^(\S+)\s+(\S+)\s+\[([^\]]+)\]\s+/(.+)/\s*$")
 
 BATCH_SIZE = 1000
-
-
-async def download(url: str, dest: Path) -> None:
-    if dest.exists():
-        print(f"  cached {dest.name}")
-        return
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    print(f"  downloading {url} ...")
-    async with httpx.AsyncClient(follow_redirects=True, timeout=300) as client:
-        async with client.stream("GET", url) as resp:
-            resp.raise_for_status()
-            with open(dest, "wb") as f:
-                async for chunk in resp.aiter_bytes(65536):
-                    f.write(chunk)
-    print(f"  saved {dest.name} ({dest.stat().st_size // 1024} KB)")
 
 
 def parse_cedict(path: Path):
@@ -97,7 +77,8 @@ async def main() -> None:
         sys.exit("ERROR: DATABASE_URL not set")
     db_url = db_url.replace("postgresql+asyncpg://", "postgresql://")
 
-    await download(CEDICT_URL, CEDICT_PATH)
+    if not CEDICT_PATH.exists():
+        sys.exit(f"ERROR: {CEDICT_PATH} not found — place cedict_ts.u8.gz in the data/ directory")
 
     conn = await asyncpg.connect(db_url)
     try:

@@ -7,9 +7,6 @@ Example lines (EUC-JP encoded):
     語 : 言 口 五
     漢 : 口 土 又 水
 
-After this script runs, kanjidic_entries.components will contain the list
-of component characters for each kanji (e.g. ['言', '口', '五'] for 語).
-
 Must be run AFTER import_kanjidic2.py.
 
 Usage:
@@ -24,28 +21,11 @@ import sys
 from pathlib import Path
 
 import asyncpg
-import httpx
 
 DATA_DIR = Path(__file__).parent.parent / "data"
-KRADFILE_URL = "http://ftp.edrdg.org/pub/Nihongo/kradfile.gz"
 KRADFILE_PATH = DATA_DIR / "kradfile.gz"
 
 BATCH_SIZE = 500
-
-
-async def download(url: str, dest: Path) -> None:
-    if dest.exists():
-        print(f"  cached {dest.name}")
-        return
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    print(f"  downloading {url} ...")
-    async with httpx.AsyncClient(follow_redirects=True, timeout=120) as client:
-        async with client.stream("GET", url) as resp:
-            resp.raise_for_status()
-            with open(dest, "wb") as f:
-                async for chunk in resp.aiter_bytes(65536):
-                    f.write(chunk)
-    print(f"  saved {dest.name} ({dest.stat().st_size // 1024} KB)")
 
 
 def parse_kradfile(path: Path) -> dict[str, list[str]]:
@@ -79,7 +59,8 @@ async def main() -> None:
         sys.exit("ERROR: DATABASE_URL not set")
     db_url = db_url.replace("postgresql+asyncpg://", "postgresql://")
 
-    await download(KRADFILE_URL, KRADFILE_PATH)
+    if not KRADFILE_PATH.exists():
+        sys.exit(f"ERROR: {KRADFILE_PATH} not found — place kradfile.gz in the data/ directory")
 
     conn = await asyncpg.connect(db_url)
     try:
