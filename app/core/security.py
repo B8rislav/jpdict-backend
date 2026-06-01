@@ -1,7 +1,7 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import bcrypt
-from jose import JWTError, jwt
+from jose import jwt
 
 from app.core.config import settings
 
@@ -20,16 +20,20 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 def _make_token(data: dict, expires_delta: timedelta) -> str:
     payload = data.copy()
-    payload["exp"] = datetime.now(timezone.utc) + expires_delta
+    payload["exp"] = datetime.now(UTC) + expires_delta
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=ALGORITHM)
 
 
 def create_access_token(subject: str) -> str:
-    return _make_token({"sub": subject, "type": "access"}, timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+    return _make_token(
+        {"sub": subject, "type": "access"}, timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
 
 
 def create_refresh_token(subject: str) -> str:
-    return _make_token({"sub": subject, "type": "refresh"}, timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS))
+    return _make_token(
+        {"sub": subject, "type": "refresh"}, timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    )
 
 
 def decode_token(token: str) -> dict:

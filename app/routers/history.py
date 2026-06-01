@@ -37,6 +37,7 @@ async def record_history(
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
+    """Record a search-history entry for the user; returns the created HistoryEntry (201)."""
     entry = SearchHistory(
         user_id=current_user.id,
         language=body.language,
@@ -56,6 +57,7 @@ async def get_history(
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
+    """List the user's search history (optional language filter); returns a list[HistoryEntry]."""
     stmt = select(SearchHistory).where(SearchHistory.user_id == current_user.id)
     if lang is not None:
         stmt = stmt.where(SearchHistory.language == lang)
@@ -70,6 +72,7 @@ async def delete_history_entry(
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
+    """Delete one history entry owned by the user; returns 204 (no-op if absent/not owned)."""
     entry = await session.get(SearchHistory, entry_id)
     if entry and entry.user_id == current_user.id:
         await session.delete(entry)
@@ -81,7 +84,6 @@ async def clear_history(
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    await session.execute(
-        delete(SearchHistory).where(SearchHistory.user_id == current_user.id)
-    )
+    """Delete all of the user's search history; returns 204."""
+    await session.execute(delete(SearchHistory).where(SearchHistory.user_id == current_user.id))
     await session.commit()

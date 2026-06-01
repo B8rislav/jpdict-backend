@@ -14,5 +14,3 @@ class DictEntry(BaseModel):
     jlpt_level: int | None = None
     hsk_level: int | None = None
     is_common: bool = False
-
-

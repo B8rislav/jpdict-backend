@@ -46,9 +46,7 @@ async def search_cedict(
         "offset": offset,
     }
     count_params = {"exact": query, "prefix": f"{query}%", "query": query}
-    where = (
-        f"{col} = :exact OR {col} ILIKE :prefix OR similarity({col}, :query) > 0.3"
-    )
+    where = f"{col} = :exact OR {col} ILIKE :prefix OR similarity({col}, :query) > 0.3"
 
     rows = await session.execute(
         text(
@@ -98,6 +96,7 @@ async def search_cedict_reverse(
     limit: int = 20,
     offset: int = 0,
 ) -> tuple[list[DictEntry], int]:
+    """Reverse-search CC-CEDICT by a normalized EN/RU keyword; returns (entries, total_count)."""
     col = "definitions_flat_ru" if normalized.script == "ru" else "definitions_flat_en"
     params = {
         "text": normalized.text,

@@ -17,4 +17,5 @@ async def reibun_search(
     lang: str = Query("ru", pattern="^(ru|en)$"),
     session: AsyncSession = Depends(get_session),
 ) -> ReibunSearchResponse:
+    """Return paginated example sentences for a JMdict word_id; returns a ReibunSearchResponse."""
     return await search_reibun(word_id, session, page=pg, per_page=perPage, lang=lang)

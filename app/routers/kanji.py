@@ -7,10 +7,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.rate_limit import rate_limit
 from app.db.database import get_session
 from app.schemas.kanji import HanziCard, KanjiCard
-from app.services.pinyin import convert_pinyin
 from app.schemas.validators import SafeStr
-from app.services import jmdict
 from app.services import cache as cache_svc
+from app.services import jmdict
+from app.services.pinyin import convert_pinyin
 
 router = APIRouter(prefix="/api", tags=["kanji"], dependencies=[Depends(rate_limit)])
 
@@ -18,7 +18,7 @@ router = APIRouter(prefix="/api", tags=["kanji"], dependencies=[Depends(rate_lim
 def _is_cjk(char: str) -> bool:
     cp = ord(char)
     return (
-        0x4E00 <= cp <= 0x9FFF    # CJK Unified Ideographs
+        0x4E00 <= cp <= 0x9FFF  # CJK Unified Ideographs
         or 0x3400 <= cp <= 0x4DBF  # Extension A
         or 0x20000 <= cp <= 0x2A6DF  # Extension B
     )
@@ -29,6 +29,7 @@ async def kanji_search(
     value: Annotated[SafeStr, Query(min_length=1, max_length=50)],
     session: AsyncSession = Depends(get_session),
 ):
+    """Search kanji by CJK char, kana reading, or meaning prefix; returns {result_count, kanjis}."""
     # Extract individual CJK / kana characters (hiragana, katakana, kanji)
     cjk_chars = [c for c in value if "぀" <= c <= "鿿"]
 
@@ -36,9 +37,10 @@ async def kanji_search(
         # Direct lookup: return a row for each distinct kanji char in the query.
         # Also check on/kun readings in case the full value is a single kana reading.
         rows = (
-            await session.execute(
-                text(
-                    """
+            (
+                await session.execute(
+                    text(
+                        """
                     SELECT character, meanings_en, jlpt_level
                     FROM kanjidic_entries
                     WHERE character = ANY(:chars)
@@ -47,28 +49,35 @@ async def kanji_search(
                     ORDER BY jlpt_level ASC NULLS LAST
                     LIMIT 20
                     """
-                ),
-                {"chars": cjk_chars, "single": value},
+                    ),
+                    {"chars": cjk_chars, "single": value},
+                )
             )
-        ).mappings().all()
+            .mappings()
+            .all()
+        )
     else:
         # English / romaji prefix search.
         # unnest(meanings_en) yields each meaning as a string (left side of LIKE),
         # so val || '%' is the pattern — avoids treating stored meanings as patterns.
         rows = (
-            await session.execute(
-                text(
-                    """
+            (
+                await session.execute(
+                    text(
+                        """
                     SELECT DISTINCT ON (character) character, meanings_en, jlpt_level
                     FROM kanjidic_entries, unnest(meanings_en) AS m
                     WHERE lower(m) LIKE lower(:val) || '%'
                     ORDER BY character, jlpt_level ASC NULLS LAST
                     LIMIT 20
                     """
-                ),
-                {"val": value},
+                    ),
+                    {"val": value},
+                )
             )
-        ).mappings().all()
+            .mappings()
+            .all()
+        )
 
     kanjis = [
         {
@@ -88,6 +97,7 @@ async def kanji_detail(
     def_lang: str = Query("ru", pattern="^(ru|en)$"),
     session: AsyncSession = Depends(get_session),
 ):
+    """Return the cached KanjiCard for one kanji in the requested language; 404 if unknown."""
     if len(char) != 1 or not _is_cjk(char):
         raise HTTPException(status_code=400, detail="Single CJK character required")
 
@@ -99,10 +109,26 @@ async def kanji_detail(
         await cache_svc.set_kanji_cache(char, result, session)
 
     if def_lang == "en":
-        meanings = result.meanings_en if result.meanings_en else result.meanings_ru or result.meanings
+        meanings = (
+            result.meanings_en if result.meanings_en else result.meanings_ru or result.meanings
+        )
     else:
         meanings = result.meanings_ru if result.meanings_ru else result.meanings
-    return result.model_copy(update={"meanings": meanings})
+
+    # Resolve each composite part's displayed meaning for the requested language.
+    # The card is cached language-agnostically (both ru/en kept per component),
+    # so we pick here rather than at fetch time.
+    components = [
+        comp.model_copy(
+            update={
+                "meanings": (comp.meanings_en or comp.meanings_ru)
+                if def_lang == "en"
+                else (comp.meanings_ru or comp.meanings_en)
+            }
+        )
+        for comp in result.components
+    ]
+    return result.model_copy(update={"meanings": meanings, "components": components})
 
 
 @router.get("/hanzi/{char}", response_model=HanziCard)
@@ -116,19 +142,23 @@ async def hanzi_detail(
         raise HTTPException(status_code=400, detail="Single CJK character required")
 
     row = (
-        await session.execute(
-            text(
-                """
+        (
+            await session.execute(
+                text(
+                    """
                 SELECT traditional, simplified, pinyin, definitions, hsk_level
                 FROM cedict_entries
                 WHERE simplified = :char OR traditional = :char
                 ORDER BY (simplified = :char) DESC
                 LIMIT 1
                 """
-            ),
-            {"char": char},
+                ),
+                {"char": char},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     if row is None:
         raise HTTPException(status_code=404, detail="Hanzi not found")

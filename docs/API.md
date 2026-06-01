@@ -1,5 +1,7 @@
 # API Reference
 
+> **The canonical API contract is the live OpenAPI schema at `GET /openapi.json`** (browsable at `/docs`). The frontend generates its types from it, so it is always authoritative. This document is the prose companion — read it for intent and shapes, but defer to the live schema when they disagree.
+
 Every public endpoint in the JpDict backend. `Auth` column: **No** = unauthenticated; **Bearer** = `Authorization: Bearer <access_token>`; **Cookie** = `refresh_token` httpOnly cookie.
 
 Rate limit applies to endpoints that include `Depends(rate_limit)` on the router: 60 req/min per IP (anonymous) or 120 req/min per user (authenticated with a valid token).
@@ -9,8 +11,8 @@ Rate limit applies to endpoints that include `Depends(rate_limit)` on the router
 | Method | Path | Auth | Rate limit | Request schema | Response schema | Source |
 |---|---|---|---|---|---|---|
 | POST | `/api/auth/register` | No | No | `UserCreate` | `UserResponse` 201 / 409 | [auth.py:23](../app/routers/auth.py#L23) |
-| POST | `/api/auth/login` | No | No | `UserCreate` | `TokenResponse` + `Set-Cookie: refresh_token` | [auth.py:40](../app/routers/auth.py#L40) |
-| POST | `/api/auth/refresh` | Cookie | No | — | `TokenResponse` | [auth.py:58](../app/routers/auth.py#L58) |
+| POST | `/api/auth/login` | No | No | `UserCreate` | `TokenResponse` + `Set-Cookie: refresh_token` | [auth.py:41](../app/routers/auth.py#L41) |
+| POST | `/api/auth/refresh` | Cookie | No | — | `TokenResponse` | [auth.py:60](../app/routers/auth.py#L60) |
 
 **`UserCreate`** — `{ email: str, password: str, language: "jp" | "cn" }`  
 **`UserResponse`** — `{ id: UUID, email: str, language: str, created_at: datetime }`  
@@ -33,9 +35,10 @@ Returns 206 when fewer than 3 tokens have a known JLPT/HSK level (breakdown is `
 
 | Method | Path | Auth | Rate limit | Request schema | Response schema | Source |
 |---|---|---|---|---|---|---|
-| GET | `/api/search` | No | Yes | query params | `Page[DictEntry]` | [search.py:17](../app/routers/search.py#L17) |
-| GET | `/api/kanji/search` | No | Yes | query params | `{ result_count, kanjis[] }` | [kanji.py:26](../app/routers/kanji.py#L26) |
-| GET | `/api/kanji/{char}` | No | Yes | path param | `KanjiCard` 200 / 404 | [kanji.py:84](../app/routers/kanji.py#L84) |
+| GET | `/api/search` | No | Yes | query params | `Page[DictEntry]` | [search.py:19](../app/routers/search.py#L19) |
+| GET | `/api/kanji/search` | No | Yes | query params | `{ result_count, kanjis[] }` | [kanji.py:27](../app/routers/kanji.py#L27) |
+| GET | `/api/kanji/{char}` | No | Yes | path param | `KanjiCard` 200 / 404 | [kanji.py:94](../app/routers/kanji.py#L94) |
+| GET | `/api/hanzi/{char}` | No | Yes | path param | `HanziCard` 200 / 404 | [kanji.py:134](../app/routers/kanji.py#L134) |
 | GET | `/api/reibun/search/{word_id}` | No | Yes | path + query | `ReibunSearchResponse` | [reibun.py:12](../app/routers/reibun.py#L12) |
 
 **`GET /api/search` query params** — `q` (1–100 chars), `lang` (`jp` | `cn` | `cn_traditional`), `pg` (default 1), `per_page` (default 20, max 100)  
@@ -47,6 +50,9 @@ Returns 206 when fewer than 3 tokens have a known JLPT/HSK level (breakdown is `
 
 **`KanjiCard`** — `{ character, stroke_count, radicals[], on_readings[], kun_readings[], meanings[], meanings_ru[], jlpt_level? }`
 
+**`GET /api/hanzi/{char}`** — single Chinese character lookup from CC-CEDICT; `def_lang` (`ru` | `en`, default `ru`)
+**`HanziCard`** — `{ character, pinyin, meanings[], hsk_level?, traditional? }`
+
 **`GET /api/reibun/search/{word_id}` query params** — `pg` (default 1), `perPage` (default 10, max 100)  
 **`ReibunSearchResponse`** — `{ result_count, pg, perPage, reibuns: [{sentence_jp, reading_jp?, translation_ru?, translation_en?, source}] }`
 
@@ -55,9 +61,9 @@ Returns 206 when fewer than 3 tokens have a known JLPT/HSK level (breakdown is `
 | Method | Path | Auth | Rate limit | Request schema | Response schema | Source |
 |---|---|---|---|---|---|---|
 | GET | `/api/vocabulary` | Bearer | No | — | `SavedWord[]` | [vocabulary.py:17](../app/routers/vocabulary.py#L17) |
-| POST | `/api/vocabulary` | Bearer | No | `SavedWordCreate` | `SavedWord` 201 / 409 | [vocabulary.py:28](../app/routers/vocabulary.py#L28) |
-| PATCH | `/api/vocabulary/{word_id}` | Bearer | No | `SavedWordStatusUpdate` | `SavedWord` 200 / 403 / 404 | [vocabulary.py:54](../app/routers/vocabulary.py#L54) |
-| DELETE | `/api/vocabulary/{word_id}` | Bearer | No | — | 204 / 403 / 404 | [vocabulary.py:75](../app/routers/vocabulary.py#L75) |
+| POST | `/api/vocabulary` | Bearer | No | `SavedWordCreate` | `SavedWord` 201 / 409 | [vocabulary.py:29](../app/routers/vocabulary.py#L29) |
+| PATCH | `/api/vocabulary/{word_id}` | Bearer | No | `SavedWordStatusUpdate` | `SavedWord` 200 / 403 / 404 | [vocabulary.py:56](../app/routers/vocabulary.py#L56) |
+| DELETE | `/api/vocabulary/{word_id}` | Bearer | No | — | 204 / 403 / 404 | [vocabulary.py:76](../app/routers/vocabulary.py#L76) |
 
 **`SavedWordCreate`** — `{ language, expression, reading, meaning, jlpt_level?, hsk_level?, status: "new"|"learning"|"known" }`  
 **`SavedWordStatusUpdate`** — `{ status: "new"|"learning"|"known" }`  
@@ -70,9 +76,9 @@ Returns 206 when fewer than 3 tokens have a known JLPT/HSK level (breakdown is `
 | Method | Path | Auth | Rate limit | Request schema | Response schema | Source |
 |---|---|---|---|---|---|---|
 | POST | `/api/history` | Bearer | No | `HistoryCreate` | `HistoryEntry` 201 | [history.py:34](../app/routers/history.py#L34) |
-| GET | `/api/history` | Bearer | No | query params | `HistoryEntry[]` | [history.py:52](../app/routers/history.py#L52) |
-| DELETE | `/api/history/{entry_id}` | Bearer | No | — | 204 (noop if not found) | [history.py:67](../app/routers/history.py#L67) |
-| DELETE | `/api/history` | Bearer | No | — | 204 | [history.py:79](../app/routers/history.py#L79) |
+| GET | `/api/history` | Bearer | No | query params | `HistoryEntry[]` | [history.py:53](../app/routers/history.py#L53) |
+| DELETE | `/api/history/{entry_id}` | Bearer | No | — | 204 (noop if not found) | [history.py:69](../app/routers/history.py#L69) |
+| DELETE | `/api/history` | Bearer | No | — | 204 | [history.py:82](../app/routers/history.py#L82) |
 
 **`HistoryCreate`** — `{ language, query: str (max 500), query_type: str (max 50) }`  
 **`HistoryEntry`** — `{ id, language, query, query_type, searched_at }`  

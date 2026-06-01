@@ -24,11 +24,16 @@ async def search(
     pagination: Paginator = Depends(paginate),
     session: AsyncSession = Depends(get_session),
 ) -> Page[DictEntry]:
+    """Search JMdict/CC-CEDICT, auto-routing forward vs reverse; returns a Page[DictEntry]."""
     if lang == "jp":
         if classify(q, lang) == QueryType.REVERSE:
             normalized = normalize_reverse_query(q)
             items, total = await jmdict.search_jmdict_reverse(
-                normalized, session, limit=pagination.per_page, offset=pagination.offset, def_lang=def_lang
+                normalized,
+                session,
+                limit=pagination.per_page,
+                offset=pagination.offset,
+                def_lang=def_lang,
             )
         else:
             items, total = await jmdict.search_jmdict(

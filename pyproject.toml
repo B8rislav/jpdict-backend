@@ -36,4 +36,46 @@ testpaths = ["tests"]
 dev = [
     "aiosqlite>=0.22.1",
     "pytest-cov>=7.1.0",
+    "ruff>=0.6",
+    "mypy>=1.11",
 ]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+# E/W: pycodestyle, F: pyflakes, I: isort, UP: pyupgrade, B: bugbear
+select = ["E", "W", "F", "I", "UP", "B"]
+# Deferred: both require behaviour-adjacent code edits, not config — clean up in a
+# dedicated PR rather than this docs/tooling pass.
+#   B904  — `raise ... from err` inside except
+#   UP042 — migrate `class X(str, Enum)` to `enum.StrEnum`
+ignore = ["B904", "UP042"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI uses callables (Depends/Query/...) as argument defaults by design;
+# these are not the mutable-default-argument bug B008 warns about.
+extend-immutable-calls = [
+    "fastapi.Depends",
+    "fastapi.Query",
+    "fastapi.Path",
+    "fastapi.Body",
+    "fastapi.Header",
+    "fastapi.Cookie",
+    "fastapi.Form",
+]
+
+[tool.mypy]
+python_version = "3.11"
+files = ["app"]
+plugins = ["pydantic.mypy"]
+check_untyped_defs = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+
+# These libraries ship no type stubs; scope the ignore to them only so mypy
+# still flags bad imports of our own modules.
+[[tool.mypy.overrides]]
+module = ["sudachipy.*", "jieba.*", "pypinyin.*", "cachetools.*", "jose.*"]
+ignore_missing_imports = true

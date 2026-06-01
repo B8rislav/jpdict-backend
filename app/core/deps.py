@@ -10,6 +10,7 @@ from app.core.security import decode_token
 from app.db.database import get_session
 from app.models.user import User
 
+
 @dataclass
 class Paginator:
     page: int
@@ -38,7 +39,9 @@ async def get_current_user(
     try:
         payload = decode_token(token)
     except JWTError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token"
+        )
 
     if payload.get("type") != "access":
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token type")

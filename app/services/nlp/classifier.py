@@ -42,6 +42,7 @@ def _is_katakana(ch: str) -> bool:
 
 
 def classify(query: str, language: str) -> QueryType:
+    """Classify a query by script + language into a QueryType (KANJI/HANZI/SENTENCE/REVERSE)."""
     stripped = query.strip()
     if not stripped:
         raise ValueError("Query must not be empty")

@@ -22,6 +22,7 @@ _REFRESH_COOKIE = "refresh_token"
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def register(body: UserCreate, session: AsyncSession = Depends(get_session)):
+    """Create a user account; returns the new UserResponse (201) or 409 if email is taken."""
     user = User(
         email=body.email,
         hashed_password=hash_password(body.password),
@@ -39,6 +40,7 @@ async def register(body: UserCreate, session: AsyncSession = Depends(get_session
 
 @router.post("/login", response_model=TokenResponse)
 async def login(body: UserCreate, response: Response, session: AsyncSession = Depends(get_session)):
+    """Verify credentials; returns a TokenResponse and sets the refresh cookie (401 on failure)."""
     result = await session.execute(select(User).where(User.email == body.email))
     user = result.scalar_one_or_none()
     if user is None or not verify_password(body.password, user.hashed_password):
@@ -60,13 +62,18 @@ async def refresh(
     session: AsyncSession = Depends(get_session),
     refresh_token: str | None = Cookie(default=None, alias=_REFRESH_COOKIE),
 ):
+    """Mint a new access token from the refresh cookie; returns a TokenResponse (401 if invalid)."""
     if refresh_token is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing refresh token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing refresh token"
+        )
 
     try:
         payload = decode_token(refresh_token)
     except JWTError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
+        )
 
     if payload.get("type") != "refresh":
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token type")

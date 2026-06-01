@@ -258,3 +258,57 @@
 
 - [x] **15.10** Extend `tests/test_search.py` — assert `GET /api/search?q=cat&lang=jp` returns ≥ 1 entry whose headword/reading corresponds to `猫`; `q=a cat&lang=jp` returns the same entry (article stripped); `q=кошка&lang=jp` returns the same entry (Russian gloss path); `q=cat&lang=cn` returns ≥ 1 entry whose simplified form is `猫`
 - [x] **15.11** Verify: `EXPLAIN ANALYZE` on a representative reverse query shows the GIN trigram index is used (no full table scan); response time on a warm cache is under ~50 ms for typical single-word queries; frontend "a cat" search renders a result list instead of an empty state
+
+---
+
+## Phase 16 — AI Agent Comprehension & Repo Onboarding
+
+> Goal: any coding agent (Claude Code, Cursor, Copilot) or new human can open this repo
+> and become productive without spelunking. We already have rich `docs/` and a `README` —
+> this phase adds the *machine-facing* entry points and closes the gaps that make an LLM
+> guess. No behaviour changes; documentation, metadata, and discoverability only.
+
+### 16a — Agent entry-point files
+
+- [x] **16.1** Add `AGENTS.md` at the backend root (the emerging cross-tool standard; symlink or copy to `CLAUDE.md` so Claude Code picks it up too). Keep it ≤ 1 screen and link out to `docs/` rather than duplicating. Must contain:
+  - **Project in one paragraph** — async FastAPI dictionary/NLP backend (JP + CN), Postgres + Redis, served to a separate Next.js frontend.
+  - **Setup & run** — `uv sync`, copy `.env.example` → `.env`, `make dev` (db+cache via Docker, app via uvicorn `--reload`), `make migrate`.
+  - **Test/lint/typecheck commands** — `uv run pytest`, `uv run ruff check`, `uv run ruff format`, `uv run mypy app` (only list the ones that actually exist; add the missing ones in 16c).
+  - **Directory map** — `app/routers`, `app/services`, `app/models`, `app/schemas`, `app/core`, `scripts/` (importers), `alembic/` (migrations).
+  - **Conventions** — async everywhere, session injected via `Depends`, no business logic in routers (it lives in `app/services`), Pydantic at the edges.
+  - **Gotchas** — data must be imported (`make import-all`) before search returns results; migrations are async; never commit `.env`.
+- [x] **16.2** Add a `## For AI agents / contributors` section near the top of `README.md` that points at `AGENTS.md` and the `docs/` index, so the human-facing and machine-facing docs cross-reference each other.
+
+### 16b — Documentation completeness pass
+
+- [x] **16.3** Add `docs/README.md` as a docs index if not already complete — one line per doc (`ARCHITECTURE`, `STRUCTURE`, `SECURITY`, `DATABASE`, `DATA_SOURCES`, `API`, `RUNBOOK`, `NLP`) so an agent can fan out from a single file.
+- [x] **16.4** Verify `docs/API.md` matches the live OpenAPI schema (the frontend generates types from `/docs`). Add a note that the canonical API contract is the live OpenAPI at `GET /openapi.json`, and that `docs/API.md` is the prose companion.
+- [x] **16.5** Ensure every public function in `app/services/*` and every router handler has a one-line docstring stating intent + return shape. Agents read docstrings before bodies; this is the cheapest comprehension win.
+
+### 16c — Tooling baseline (so the commands in AGENTS.md are real)
+
+- [x] **16.6** Add `.editorconfig` at the repo root (UTF-8, LF, 4-space Python indent, trim trailing whitespace) — picked up automatically by every major editor and agent.
+- [x] **16.7** Confirm `ruff` + `mypy` config live in `pyproject.toml` (`[tool.ruff]`, `[tool.mypy]`); if missing, add a sane baseline (line length, target-version, `strict` optional flags) and a `make lint` / `make typecheck` target so AGENTS.md can reference one canonical command.
+- [x] **16.8** Add `CONTRIBUTING.md` (short) — branch naming, "run `make lint && uv run pytest` before pushing", migration workflow (`alembic revision --autogenerate` → review → commit). Link it from `AGENTS.md`.
+- [x] **16.9** Verify: a fresh clone + `uv sync` + the exact commands listed in `AGENTS.md` all succeed; every relative link in `AGENTS.md`/`README.md`/`docs/README.md` resolves (run a markdown link-checker or `grep` the paths).
+
+---
+
+## Phase 17 — Spaced-Repetition (SRS) Backend for the Anki-style Study Mode
+
+> Supports the frontend "Anki-style cards" feature. Each `SavedWord` becomes a reviewable
+> card with SRS scheduling state. Keep it stateless-friendly and language-aware (`jp`/`cn`).
+> Algorithm: start with the well-documented SM-2 (or FSRS if you prefer) — small, testable,
+> no external service.
+
+- [ ] **17.1** Extend `app/models/saved_word.py` (or a new `app/models/review_state.py` 1:1 with `SavedWord`) with SRS columns: `due_at` (timestamptz, nullable), `interval_days` (int, default 0), `ease_factor` (float, default 2.5), `repetitions` (int, default 0), `lapses` (int, default 0), `last_reviewed_at` (timestamptz, nullable), `suspended` (bool, default false). Index `(user_id, language, due_at)` for the "cards due now" query.
+- [ ] **17.2** Alembic migration adding the columns/table + index; backfill existing saved words with `due_at = now()` (immediately reviewable) and SM-2 defaults.
+- [ ] **17.3** Write `app/services/srs.py::schedule(state, grade)` — pure function implementing SM-2: `grade ∈ {again, hard, good, easy}` (0–3 or 1–4) → returns the next `interval_days`, `ease_factor`, `repetitions`, `due_at`. No DB access inside; fully unit-testable.
+- [ ] **17.4** Add `app/schemas/review.py` — `ReviewCard` (the word payload the client renders), `ReviewGrade` (request: `grade`), `ReviewResult` (next `due_at`, `interval_days`).
+- [ ] **17.5** Add `app/routers/review.py`, registered in `main.py`, all behind `get_current_user`:
+  - `GET /api/review/queue?language=jp&limit=20` — cards where `due_at <= now()` and not `suspended`, oldest-due first; include new (never-reviewed) cards up to a daily cap.
+  - `POST /api/review/{saved_word_id}` — body `{grade}`; calls `srs.schedule`, persists new state, returns `ReviewResult`.
+  - `GET /api/review/stats?language=jp` — counts of due / new / learned / suspended for the study dashboard.
+  - `POST /api/review/{saved_word_id}/suspend` (and unsuspend) — toggle a card out of rotation.
+- [ ] **17.6** Tests in `tests/test_review.py`: SM-2 progression (`again` resets interval + bumps lapses; consecutive `good` grows interval and respects `ease_factor` floor of 1.3); queue returns only due, non-suspended cards for the right user+language; grading a card moves its `due_at` into the future and removes it from the immediate queue; auth required (401 without token); a user can't grade another user's card (404/403).
+- [ ] **17.7** Verify: register → save a word → `GET /api/review/queue` returns it → `POST` a `good` grade → it leaves the queue and `due_at` is ~1 day out; `docs/API.md` updated with the new endpoints.

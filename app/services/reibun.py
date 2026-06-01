@@ -12,15 +12,18 @@ async def search_reibun(
     per_page: int,
     lang: str = "ru",
 ) -> ReibunSearchResponse:
+    """Find cached example sentences for word_id's headword; returns a ReibunSearchResponse."""
     # Look up the canonical expression for word_id from jmdict_entries
     expr_row = (
-        await session.execute(
-            text(
-                "SELECT kanji_forms, reading_forms FROM jmdict_entries WHERE entry_id = :id"
-            ),
-            {"id": word_id},
+        (
+            await session.execute(
+                text("SELECT kanji_forms, reading_forms FROM jmdict_entries WHERE entry_id = :id"),
+                {"id": word_id},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     if expr_row is None:
         return ReibunSearchResponse(result_count=0, pg=page, perPage=per_page, reibuns=[])
@@ -39,25 +42,27 @@ async def search_reibun(
     offset = (page - 1) * per_page
 
     rows = (
-        await session.execute(
-            text(
-                """
+        (
+            await session.execute(
+                text(
+                    """
                 SELECT id, sentence_jp, reading_jp, translation_ru, translation_en
                 FROM reibun_entries
                 WHERE sentence_jp ILIKE '%' || :expr || '%'
                 ORDER BY length(sentence_jp) ASC
                 LIMIT :lim OFFSET :off
                 """
-            ),
-            {"expr": expression, "lim": per_page, "off": offset},
+                ),
+                {"expr": expression, "lim": per_page, "off": offset},
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
 
     total: int = (
         await session.execute(
-            text(
-                "SELECT COUNT(*) FROM reibun_entries WHERE sentence_jp ILIKE '%' || :expr || '%'"
-            ),
+            text("SELECT COUNT(*) FROM reibun_entries WHERE sentence_jp ILIKE '%' || :expr || '%'"),
             {"expr": expression},
         )
     ).scalar_one()

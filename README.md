@@ -2,6 +2,12 @@
 
 REST API for a Japanese and Chinese language learning web application. Handles text analysis, dictionary search, vocabulary management, and AI-powered explanations.
 
+## For AI agents / contributors
+
+- **Coding agents** (Claude Code, Cursor, Copilot) and new contributors: start with [`AGENTS.md`](AGENTS.md) — a one-screen orientation (setup, commands, directory map, conventions, gotchas). `CLAUDE.md` is a symlink to it.
+- **Contributing workflow** (branches, pre-push checks, migrations): [`CONTRIBUTING.md`](CONTRIBUTING.md).
+- **Reference docs** fan out from the [`docs/`](docs/README.md) index.
+
 ## Documentation
 
 Full reference docs live in [`docs/`](docs/README.md).

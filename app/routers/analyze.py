@@ -8,8 +8,8 @@ from app.schemas.analyze import (
     LevelBreakdown,
     TokenResult,
 )
-from app.services.nlp.classifier import QueryType, classify
 from app.services.nlp.chinese import tokenize_chinese
+from app.services.nlp.classifier import classify
 from app.services.nlp.japanese import tokenize_japanese
 
 router = APIRouter(prefix="/api", tags=["analyze"], dependencies=[Depends(rate_limit)])
@@ -45,6 +45,7 @@ def _build_breakdown(tokens: list[TokenResult], language: str) -> LevelBreakdown
 
 @router.post("/analyze")
 async def analyze(request: AnalyzeRequest, response: Response) -> AnalyzeResponse:
+    """Tokenize and level-annotate JP/CN text; returns an AnalyzeResponse (206 if too sparse)."""
     query = request.query.strip()
 
     try:

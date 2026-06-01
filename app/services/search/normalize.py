@@ -16,6 +16,7 @@ class NormalizedQuery:
 
 
 def normalize_reverse_query(q: str) -> NormalizedQuery:
+    """Lower-case, de-article, and trim a reverse keyword; returns a NormalizedQuery (EN/RU)."""
     stripped = q.strip()
     if not stripped:
         raise ValueError("Query must not be empty")

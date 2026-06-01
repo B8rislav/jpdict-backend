@@ -1,4 +1,4 @@
-.PHONY: dev migrate logs stop build import-jmdict import-kanjidic import-kradfile import-cedict import-hsk import-kanji-ru import-all
+.PHONY: dev migrate logs stop build lint format typecheck test import-jmdict import-kanjidic import-kradfile import-cedict import-hsk import-kanji-ru import-all
 
 dev:
 	docker compose up db cache -d
@@ -6,6 +6,24 @@ dev:
 
 migrate:
 	uv run --env-file .env alembic upgrade head
+
+# Lint with ruff (style + import order). Fails on any finding.
+lint:
+	uv run ruff check app
+	uv run ruff format --check app
+
+# Auto-format and auto-fix safe lint findings in place.
+format:
+	uv run ruff check app --fix
+	uv run ruff format app
+
+# Static type check (advisory: a small known baseline of errors remains).
+typecheck:
+	uv run mypy app
+
+# Run the test suite.
+test:
+	uv run pytest
 
 logs:
 	docker compose logs -f db cache

@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from cachetools import TTLCache
 from sqlalchemy import text
@@ -13,29 +13,36 @@ _mem_cache: TTLCache = TTLCache(maxsize=512, ttl=600)
 _reibun_cache: TTLCache = TTLCache(maxsize=1024, ttl=600)
 
 
-def get_reibun_cached(expression: str, page: int, per_page: int, lang: str = "ru") -> ReibunSearchResponse | None:
+def get_reibun_cached(
+    expression: str, page: int, per_page: int, lang: str = "ru"
+) -> ReibunSearchResponse | None:
+    """Return the cached reibun page for (expression, page, per_page, lang), or None on miss."""
     return _reibun_cache.get((expression, page, per_page, lang))
 
 
 def set_reibun_cache(
     expression: str, page: int, per_page: int, response: ReibunSearchResponse, lang: str = "ru"
 ) -> None:
+    """Cache a reibun page keyed by (expression, page, per_page, lang)."""
     _reibun_cache[(expression, page, per_page, lang)] = response
 
 
 async def get_kanji_cached(char: str, session: AsyncSession) -> KanjiCard | None:
+    """Return a KanjiCard from the memory/Postgres cache (memoizing the DB hit), else None."""
     cached = _mem_cache.get(char)
     if cached is not None:
         return cached
 
     row = (
-        await session.execute(
-            text(
-                "SELECT data FROM kanji_cache WHERE character = :c AND expires_at > NOW()"
-            ),
-            {"c": char},
+        (
+            await session.execute(
+                text("SELECT data FROM kanji_cache WHERE character = :c AND expires_at > NOW()"),
+                {"c": char},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     if row is None:
         return None
@@ -46,9 +53,10 @@ async def get_kanji_cached(char: str, session: AsyncSession) -> KanjiCard | None
 
 
 async def set_kanji_cache(char: str, card: KanjiCard, session: AsyncSession) -> None:
+    """Write a KanjiCard to the memory cache and Postgres kanji_cache table (30-day TTL)."""
     _mem_cache[char] = card
 
-    expires_at = datetime.now(timezone.utc) + timedelta(days=30)
+    expires_at = datetime.now(UTC) + timedelta(days=30)
     await session.execute(
         text(
             """
