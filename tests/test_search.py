@@ -70,7 +70,7 @@ _NEKO_CN_RAW = {
 async def test_jp_search_returns_200(
     client: AsyncClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    async def _fake(q, s, *, limit, offset):
+    async def _fake(q, s, *, limit, offset, **kwargs):
         return [_JP_ENTRY], 1
 
     monkeypatch.setattr("app.routers.search.jmdict.search_jmdict", _fake)
@@ -83,7 +83,7 @@ async def test_jp_search_calls_jmdict(
 ) -> None:
     called = {}
 
-    async def _fake_jmdict(q, session, *, limit, offset):
+    async def _fake_jmdict(q, session, *, limit, offset, **kwargs):
         called["q"] = q
         called["lang"] = "jp"
         return [_JP_ENTRY], 1
@@ -96,7 +96,7 @@ async def test_jp_search_calls_jmdict(
 async def test_jp_search_returns_dict_entry_list(
     client: AsyncClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    async def _fake(q, s, *, limit, offset):
+    async def _fake(q, s, *, limit, offset, **kwargs):
         return [_JP_ENTRY], 1
 
     monkeypatch.setattr("app.routers.search.jmdict.search_jmdict", _fake)
@@ -112,7 +112,7 @@ async def test_jp_search_returns_dict_entry_list(
 async def test_jp_search_page_structure(
     client: AsyncClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    async def _fake(q, s, *, limit, offset):
+    async def _fake(q, s, *, limit, offset, **kwargs):
         return [_JP_ENTRY], 1
 
     monkeypatch.setattr("app.routers.search.jmdict.search_jmdict", _fake)
@@ -130,7 +130,7 @@ async def test_jp_search_page_structure(
 async def test_cn_search_returns_200(
     client: AsyncClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    async def _fake(q, lang, s, *, limit, offset):
+    async def _fake(q, lang, s, *, limit, offset, **kwargs):
         return [_CN_RAW], 1
 
     monkeypatch.setattr("app.routers.search.cedict.search_cedict", _fake)
@@ -143,7 +143,7 @@ async def test_cn_search_calls_cedict(
 ) -> None:
     called = {}
 
-    async def _fake_cedict(q, lang, session, *, limit, offset):
+    async def _fake_cedict(q, lang, session, *, limit, offset, **kwargs):
         called["q"] = q
         called["lang"] = lang
         return [_CN_RAW], 1
@@ -156,7 +156,7 @@ async def test_cn_search_calls_cedict(
 async def test_cn_search_returns_dict_entry_list(
     client: AsyncClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    async def _fake(q, lang, s, *, limit, offset):
+    async def _fake(q, lang, s, *, limit, offset, **kwargs):
         return [_CN_RAW], 1
 
     monkeypatch.setattr("app.routers.search.cedict.search_cedict", _fake)
@@ -173,7 +173,7 @@ async def test_cn_traditional_search(
 ) -> None:
     called = {}
 
-    async def _fake_cedict(q, lang, session, *, limit, offset):
+    async def _fake_cedict(q, lang, session, *, limit, offset, **kwargs):
         called["lang"] = lang
         return [_CN_RAW], 1
 
@@ -200,7 +200,7 @@ async def test_search_422_invalid_lang(client: AsyncClient) -> None:
 async def test_search_empty_result_returns_page(
     client: AsyncClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    async def _fake(q, s, *, limit, offset):
+    async def _fake(q, s, *, limit, offset, **kwargs):
         return [], 0
 
     monkeypatch.setattr("app.routers.search.jmdict.search_jmdict", _fake)
@@ -219,7 +219,7 @@ async def test_search_empty_result_returns_page(
 async def test_reverse_jp_cat_returns_neko(
     client: AsyncClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    async def _fake(normalized, s, *, limit, offset):
+    async def _fake(normalized, s, *, limit, offset, **kwargs):
         return [_NEKO_JP], 1
 
     monkeypatch.setattr("app.routers.search.jmdict.search_jmdict_reverse", _fake)
@@ -235,7 +235,7 @@ async def test_reverse_jp_article_stripped(
 ) -> None:
     calls: list = []
 
-    async def _fake(normalized, s, *, limit, offset):
+    async def _fake(normalized, s, *, limit, offset, **kwargs):
         calls.append(normalized.text)
         return [_NEKO_JP], 1
 
@@ -247,7 +247,7 @@ async def test_reverse_jp_article_stripped(
 async def test_reverse_jp_a_cat_same_result_as_cat(
     client: AsyncClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    async def _fake(normalized, s, *, limit, offset):
+    async def _fake(normalized, s, *, limit, offset, **kwargs):
         return [_NEKO_JP], 1
 
     monkeypatch.setattr("app.routers.search.jmdict.search_jmdict_reverse", _fake)
@@ -261,7 +261,7 @@ async def test_reverse_jp_russian_uses_ru_script(
 ) -> None:
     calls: list = []
 
-    async def _fake(normalized, s, *, limit, offset):
+    async def _fake(normalized, s, *, limit, offset, **kwargs):
         calls.append(normalized.script)
         return [_NEKO_JP], 1
 
@@ -274,7 +274,7 @@ async def test_reverse_jp_russian_uses_ru_script(
 async def test_reverse_jp_russian_returns_entry(
     client: AsyncClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    async def _fake(normalized, s, *, limit, offset):
+    async def _fake(normalized, s, *, limit, offset, **kwargs):
         return [_NEKO_JP], 1
 
     monkeypatch.setattr("app.routers.search.jmdict.search_jmdict_reverse", _fake)
@@ -294,7 +294,7 @@ async def test_reverse_cn_cat_calls_cedict_reverse(
 ) -> None:
     called = {}
 
-    async def _fake(normalized, lang, s, *, limit, offset):
+    async def _fake(normalized, lang, s, *, limit, offset, **kwargs):
         called["text"] = normalized.text
         called["lang"] = lang
         return [_NEKO_CN_RAW], 1
@@ -309,7 +309,7 @@ async def test_reverse_cn_cat_calls_cedict_reverse(
 async def test_reverse_cn_cat_returns_neko(
     client: AsyncClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    async def _fake(normalized, lang, s, *, limit, offset):
+    async def _fake(normalized, lang, s, *, limit, offset, **kwargs):
         return [_NEKO_CN_RAW], 1
 
     monkeypatch.setattr("app.routers.search.cedict.search_cedict_reverse", _fake)
@@ -324,7 +324,7 @@ async def test_reverse_cn_traditional_routes_to_reverse(
 ) -> None:
     called = {}
 
-    async def _fake(normalized, lang, s, *, limit, offset):
+    async def _fake(normalized, lang, s, *, limit, offset, **kwargs):
         called["lang"] = lang
         return [_NEKO_CN_RAW], 1
 
@@ -343,11 +343,11 @@ async def test_forward_jp_cjk_query_does_not_use_reverse(
 ) -> None:
     reverse_called = {}
 
-    async def _fake_reverse(normalized, s, *, limit, offset):
+    async def _fake_reverse(normalized, s, *, limit, offset, **kwargs):
         reverse_called["hit"] = True
         return [], 0
 
-    async def _fake_forward(q, s, *, limit, offset):
+    async def _fake_forward(q, s, *, limit, offset, **kwargs):
         return [_JP_ENTRY], 1
 
     monkeypatch.setattr("app.routers.search.jmdict.search_jmdict_reverse", _fake_reverse)

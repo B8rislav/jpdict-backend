@@ -137,19 +137,25 @@ async def search_jmdict_reverse(
         "off": offset,
     }
 
-    # Rank 0: text is an entire gloss line (exact match)
-    # Rank 1: text appears as a complete word within a gloss (word-boundary)
-    # Rank 2: any gloss line starts with text (prefix fallback)
+    # Skips leading "1) ", "(...) ", "[...] " markers when matching at line start,
+    # so "мужчина" is treated as a primary meaning of "1) мужчина; ..." but not
+    # of "оннагата (мужчина-актёр...)".
+    primary_prefix = r"(?:\d+\)\s*|\([^)]*\)\s*|\[[^\]]*\]\s*)*"
+
+    # Rank 0: gloss line equals text (exact match)
+    # Rank 1: gloss line starts with text after optional numbering/marker prefix (primary meaning)
+    # Rank 2: text appears as a complete word elsewhere
     where = (
         f"{col} ~* ('(?:^|\\n)' || :text || '(?:\\n|$)')"
+        f" OR {col} ~* ('(?:^|\\n){primary_prefix}' || :text || '(?:\\W|$)')"
         f" OR {col} ~* ('\\m' || :text || '\\M')"
-        f" OR {col} ~* ('(?:^|\\n)' || :text)"
     )
     rank_expr = (
         f"CASE"
         f" WHEN {col} ~* ('(?:^|\\n)' || :text || '(?:\\n|$)') THEN 0"
-        f" WHEN {col} ~* ('\\m' || :text || '\\M') THEN 1"
-        f" ELSE 2"
+        f" WHEN {col} ~* ('(?:^|\\n){primary_prefix}' || :text || '(?:\\W|$)') THEN 1"
+        f" WHEN {col} ~* ('\\m' || :text || '\\M') THEN 2"
+        f" ELSE 3"
         f" END"
     )
 

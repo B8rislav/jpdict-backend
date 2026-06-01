@@ -105,16 +105,21 @@ async def search_cedict_reverse(
         "off": offset,
     }
 
+    # Skips leading "1) ", "(...) ", "[...] " markers when matching at line start,
+    # so the keyword is treated as a primary meaning rather than incidental mention.
+    primary_prefix = r"(?:\d+\)\s*|\([^)]*\)\s*|\[[^\]]*\]\s*)*"
+
     where = (
         f"{col} ~* ('(?:^|\\n)' || :text || '(?:\\n|$)')"
+        f" OR {col} ~* ('(?:^|\\n){primary_prefix}' || :text || '(?:\\W|$)')"
         f" OR {col} ~* ('\\m' || :text || '\\M')"
-        f" OR {col} ~* ('(?:^|\\n)' || :text)"
     )
     rank_expr = (
         f"CASE"
         f" WHEN {col} ~* ('(?:^|\\n)' || :text || '(?:\\n|$)') THEN 0"
-        f" WHEN {col} ~* ('\\m' || :text || '\\M') THEN 1"
-        f" ELSE 2"
+        f" WHEN {col} ~* ('(?:^|\\n){primary_prefix}' || :text || '(?:\\W|$)') THEN 1"
+        f" WHEN {col} ~* ('\\m' || :text || '\\M') THEN 2"
+        f" ELSE 3"
         f" END"
     )
 
