@@ -3,10 +3,14 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     DateTime,
     Enum,
+    Float,
     ForeignKey,
+    Index,
+    Integer,
     SmallInteger,
     String,
     UniqueConstraint,
@@ -31,6 +35,7 @@ class SavedWord(Base):
         UniqueConstraint("user_id", "language", "expression", name="uq_user_word"),
         CheckConstraint("jlpt_level BETWEEN 1 AND 5", name="ck_jlpt_level"),
         CheckConstraint("hsk_level BETWEEN 1 AND 6", name="ck_hsk_level"),
+        Index("idx_saved_words_due", "user_id", "language", "due_at"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -53,3 +58,14 @@ class SavedWord(Base):
     added_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+    # SRS (SM-2) scheduling state — 1:1 with the saved word (see TASKS.md 17.1)
+    due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    interval_days: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    ease_factor: Mapped[float] = mapped_column(Float, nullable=False, server_default="2.5")
+    repetitions: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    lapses: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    last_reviewed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    suspended: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")

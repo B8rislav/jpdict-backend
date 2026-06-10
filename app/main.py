@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.core.config import settings
-from app.routers import analyze, auth, history, kanji, reibun, search, vocabulary
+from app.routers import analyze, auth, history, kanji, reibun, review, search, vocabulary
 
 
 @asynccontextmanager
@@ -41,6 +41,7 @@ app.include_router(kanji.router)
 app.include_router(reibun.router)
 app.include_router(vocabulary.router)
 app.include_router(history.router)
+app.include_router(review.router)
 
 
 @app.get("/health")

@@ -301,11 +301,11 @@
 > Algorithm: start with the well-documented SM-2 (or FSRS if you prefer) — small, testable,
 > no external service.
 
-- [ ] **17.1** Extend `app/models/saved_word.py` (or a new `app/models/review_state.py` 1:1 with `SavedWord`) with SRS columns: `due_at` (timestamptz, nullable), `interval_days` (int, default 0), `ease_factor` (float, default 2.5), `repetitions` (int, default 0), `lapses` (int, default 0), `last_reviewed_at` (timestamptz, nullable), `suspended` (bool, default false). Index `(user_id, language, due_at)` for the "cards due now" query.
-- [ ] **17.2** Alembic migration adding the columns/table + index; backfill existing saved words with `due_at = now()` (immediately reviewable) and SM-2 defaults.
-- [ ] **17.3** Write `app/services/srs.py::schedule(state, grade)` — pure function implementing SM-2: `grade ∈ {again, hard, good, easy}` (0–3 or 1–4) → returns the next `interval_days`, `ease_factor`, `repetitions`, `due_at`. No DB access inside; fully unit-testable.
-- [ ] **17.4** Add `app/schemas/review.py` — `ReviewCard` (the word payload the client renders), `ReviewGrade` (request: `grade`), `ReviewResult` (next `due_at`, `interval_days`).
-- [ ] **17.5** Add `app/routers/review.py`, registered in `main.py`, all behind `get_current_user`:
+- [x] **17.1** Extend `app/models/saved_word.py` (or a new `app/models/review_state.py` 1:1 with `SavedWord`) with SRS columns: `due_at` (timestamptz, nullable), `interval_days` (int, default 0), `ease_factor` (float, default 2.5), `repetitions` (int, default 0), `lapses` (int, default 0), `last_reviewed_at` (timestamptz, nullable), `suspended` (bool, default false). Index `(user_id, language, due_at)` for the "cards due now" query.
+- [x] **17.2** Alembic migration adding the columns/table + index; backfill existing saved words with `due_at = now()` (immediately reviewable) and SM-2 defaults.
+- [x] **17.3** Write `app/services/srs.py::schedule(state, grade)` — pure function implementing SM-2: `grade ∈ {again, hard, good, easy}` (0–3 or 1–4) → returns the next `interval_days`, `ease_factor`, `repetitions`, `due_at`. No DB access inside; fully unit-testable.
+- [x] **17.4** Add `app/schemas/review.py` — `ReviewCard` (the word payload the client renders), `ReviewGrade` (request: `grade`), `ReviewResult` (next `due_at`, `interval_days`).
+- [x] **17.5** Add `app/routers/review.py`, registered in `main.py`, all behind `get_current_user`:
   - `GET /api/review/queue?language=jp&limit=20` — cards where `due_at <= now()` and not `suspended`, oldest-due first; include new (never-reviewed) cards up to a daily cap.
   - `POST /api/review/{saved_word_id}` — body `{grade}`; calls `srs.schedule`, persists new state, returns `ReviewResult`.
   - `GET /api/review/stats?language=jp` — counts of due / new / learned / suspended for the study dashboard.
