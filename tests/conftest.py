@@ -44,6 +44,12 @@ def make_session() -> AsyncMock:
                     setattr(obj, field, datetime.now(timezone.utc))
                 except AttributeError:
                     pass
+        # Mirror the DB server_default so SRS columns aren't left None.
+        if getattr(obj, "suspended", None) is None:
+            try:
+                obj.suspended = False  # type: ignore[attr-defined]
+            except AttributeError:
+                pass
 
     session.refresh = AsyncMock(side_effect=_refresh)
     return session

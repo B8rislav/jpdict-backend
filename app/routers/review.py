@@ -14,15 +14,21 @@ from app.services import srs
 
 router = APIRouter(prefix="/api/review", tags=["review"])
 
-# Cap on never-reviewed cards mixed into a single queue, so a large backlog of
-# new words doesn't bury the cards actually due for review.
-MAX_NEW_PER_QUEUE = 20
+# Default ceiling on brand-new cards introduced per day when the client doesn't
+# specify one; mirrors Anki's default new-cards/day.
+DEFAULT_NEW_PER_DAY = 20
 
 
 @router.get("/queue", response_model=list[ReviewCard])
 async def review_queue(
     language: LanguageEnum = Query(..., description="Card language to study"),
     limit: int = Query(20, ge=1, le=100, description="Max cards to return"),
+    new_per_day: int = Query(
+        DEFAULT_NEW_PER_DAY,
+        ge=0,
+        le=1000,
+        description="Max brand-new cards to introduce per day (rolling, UTC day)",
+    ),
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
@@ -47,8 +53,22 @@ async def review_queue(
     )
     due_cards = list((await session.execute(due_stmt)).scalars().all())
 
-    # Fill any remaining room with never-reviewed cards, capped per queue.
-    remaining = min(limit - len(due_cards), MAX_NEW_PER_QUEUE)
+    # Fill remaining room with never-reviewed cards, respecting the rolling
+    # daily cap: limit - (new cards already introduced today).
+    introduced_today = (
+        await session.execute(
+            select(func.count())
+            .select_from(SavedWordModel)
+            .where(
+                SavedWordModel.user_id == current_user.id,
+                SavedWordModel.language == language,
+                SavedWordModel.first_reviewed_at >= _start_of_utc_day(now),
+            )
+        )
+    ).scalar_one()
+    daily_room = max(0, new_per_day - introduced_today)
+
+    remaining = min(limit - len(due_cards), daily_room)
     new_cards: list[SavedWordModel] = []
     if remaining > 0:
         new_stmt = (
@@ -90,6 +110,10 @@ async def grade_card(
     word.lapses = scheduling.lapses
     word.due_at = scheduling.due_at
     word.last_reviewed_at = now
+    # Stamp the first-ever review so it counts toward today's new-card cap; a
+    # later lapse must not reset this, hence first_reviewed_at (not last_).
+    if word.first_reviewed_at is None:
+        word.first_reviewed_at = now
     await session.commit()
 
     return ReviewResult(
@@ -153,6 +177,11 @@ async def unsuspend_card(
 ):
     """Return a suspended card to rotation; returns the ReviewCard."""
     return await _set_suspended(saved_word_id, False, current_user, session)
+
+
+def _start_of_utc_day(now: datetime) -> datetime:
+    """Midnight UTC of the given instant — the boundary for the daily new-card cap."""
+    return now.replace(hour=0, minute=0, second=0, microsecond=0)
 
 
 async def _get_owned_word(

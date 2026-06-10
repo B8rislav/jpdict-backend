@@ -27,6 +27,7 @@ def _mock_card(user_id: uuid.UUID, **overrides: object) -> MagicMock:
     card.repetitions = 0
     card.lapses = 0
     card.last_reviewed_at = None
+    card.first_reviewed_at = None
     card.suspended = False
     for key, value in overrides.items():
         setattr(card, key, value)
@@ -36,6 +37,12 @@ def _mock_card(user_id: uuid.UUID, **overrides: object) -> MagicMock:
 def _scalars_returning(*cards: object) -> MagicMock:
     result = MagicMock()
     result.scalars.return_value.all.return_value = list(cards)
+    return result
+
+
+def _count_returning(n: int) -> MagicMock:
+    result = MagicMock()
+    result.scalar_one.return_value = n
     return result
 
 
@@ -71,13 +78,41 @@ async def test_queue_returns_due_then_new(
         repetitions=3,
     )
     new = _mock_card(test_user.id, last_reviewed_at=None)
-    # First execute() is the due query, second is the new-cards query.
-    sess.execute = AsyncMock(side_effect=[_scalars_returning(due), _scalars_returning(new)])
+    # execute() order: due query, count of today's introductions, new-cards query.
+    sess.execute = AsyncMock(
+        side_effect=[_scalars_returning(due), _count_returning(0), _scalars_returning(new)]
+    )
 
     r = await ac.get("/api/review/queue?language=jp&limit=20")
     assert r.status_code == 200
     ids = [c["id"] for c in r.json()]
     assert ids == [str(due.id), str(new.id)]
+
+
+async def test_queue_daily_cap_excludes_new_when_reached(
+    authed_client_with_session: tuple[AsyncClient, AsyncMock],
+) -> None:
+    ac, sess = authed_client_with_session
+    # No due cards; the daily new-card limit (5) is already used up today (5).
+    # The new-cards query must therefore never run (no third execute result).
+    sess.execute = AsyncMock(side_effect=[_scalars_returning(), _count_returning(5)])
+
+    r = await ac.get("/api/review/queue?language=jp&new_per_day=5")
+    assert r.status_code == 200
+    assert r.json() == []
+
+
+async def test_queue_new_per_day_zero_serves_no_new(
+    authed_client_with_session: tuple[AsyncClient, AsyncMock],
+    test_user: MagicMock,
+) -> None:
+    ac, sess = authed_client_with_session
+    # Even with new cards available, new_per_day=0 must skip the new-cards query.
+    sess.execute = AsyncMock(side_effect=[_scalars_returning(), _count_returning(0)])
+
+    r = await ac.get("/api/review/queue?language=jp&new_per_day=0")
+    assert r.status_code == 200
+    assert r.json() == []
 
 
 # ---------------------------------------------------------------------------
@@ -123,9 +158,13 @@ async def test_grade_good_persists_and_returns_result(
     r = await ac.post(f"/api/review/{card.id}", json={"grade": "good"})
     assert r.status_code == 200
     body = r.json()
-    assert body["interval_days"] == 1
+    # A brand-new card answered "good" advances a learning step (sub-day), so it
+    # stays at interval_days 0 but its due date is pushed into the future.
+    assert body["interval_days"] == 0
     assert body["repetitions"] == 1
+    assert datetime.fromisoformat(body["due_at"]) > datetime.now(timezone.utc)
     assert card.last_reviewed_at is not None
+    assert card.first_reviewed_at is not None  # stamped on first review
     sess.commit.assert_awaited()
 
 

@@ -67,9 +67,29 @@ Returns 206 when fewer than 3 tokens have a known JLPT/HSK level (breakdown is `
 
 **`SavedWordCreate`** — `{ language, expression, reading, meaning, jlpt_level?, hsk_level?, status: "new"|"learning"|"known" }`  
 **`SavedWordStatusUpdate`** — `{ status: "new"|"learning"|"known" }`  
-**`SavedWord`** — `{ id, user_id, language, expression, reading, meaning, jlpt_level?, hsk_level?, status, added_at }`
+**`SavedWord`** — `{ id, user_id, language, expression, reading, meaning, jlpt_level?, hsk_level?, status, added_at, suspended }`
 
 409 Conflict is returned when `(user_id, language, expression)` already exists.
+
+## Review (spaced repetition)
+
+Anki-style study mode. Each `SavedWord` doubles as a reviewable card with SM-2 scheduling state (see TASKS.md §17). Scheduling is **SM-2 with learning steps**: a card with `interval_days == 0` is in (re)learning and its `due_at` carries a sub-day time; once graduated, `interval_days` is in whole days. Grades are `again | hard | good | easy` — `again` sends a card back to a ~1-minute learning step (so it resurfaces the same session; the client should refetch `/queue` to see it), `good`/`easy` graduate it to days.
+
+| Method | Path | Auth | Rate limit | Request schema | Response schema | Source |
+|---|---|---|---|---|---|---|
+| GET | `/api/review/queue` | Bearer | No | query params | `ReviewCard[]` | [review.py:22](../app/routers/review.py#L22) |
+| POST | `/api/review/{saved_word_id}` | Bearer | No | `ReviewGrade` | `ReviewResult` 200 / 403 / 404 | [review.py:85](../app/routers/review.py#L85) |
+| GET | `/api/review/stats` | Bearer | No | query params | `ReviewStats` | [review.py:127](../app/routers/review.py#L127) |
+| POST | `/api/review/{saved_word_id}/suspend` | Bearer | No | — | `ReviewCard` 200 / 403 / 404 | [review.py:162](../app/routers/review.py#L162) |
+| POST | `/api/review/{saved_word_id}/unsuspend` | Bearer | No | — | `ReviewCard` 200 / 403 / 404 | [review.py:172](../app/routers/review.py#L172) |
+
+**`GET /api/review/queue` query params** — `language` (`jp` | `cn`, required), `limit` (default 20, max 100), `new_per_day` (default 20, max 1000) — rolling cap on brand-new cards introduced per UTC day. Returns due cards (already reviewed, `due_at <= now`, not suspended), oldest-due first, then up to the remaining daily quota of never-reviewed cards.  
+**`GET /api/review/stats` query params** — `language` (`jp` | `cn`, required)
+
+**`ReviewCard`** — `{ id, language, expression, reading, meaning, jlpt_level?, hsk_level?, status, due_at?, interval_days, ease_factor, repetitions, lapses, last_reviewed_at?, suspended }`  
+**`ReviewGrade`** — `{ grade: "again" | "hard" | "good" | "easy" }`  
+**`ReviewResult`** — `{ due_at, interval_days, repetitions, ease_factor }`  
+**`ReviewStats`** — `{ new, due, learned, suspended }` — counts scoped to one language; `new` = never reviewed, `due` = reviewed and due now, `learned` = reviewed and scheduled ahead, `suspended` = out of rotation.
 
 ## History
 

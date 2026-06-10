@@ -68,4 +68,8 @@ class SavedWord(Base):
     last_reviewed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    # When the card was first ever reviewed; drives the rolling daily new-card cap.
+    first_reviewed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     suspended: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")

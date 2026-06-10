@@ -33,6 +33,7 @@ def _mock_word(user_id: uuid.UUID) -> MagicMock:
     word.hsk_level = None
     word.status = "new"
     word.added_at = datetime.now(timezone.utc)
+    word.suspended = False
     return word
 
 
@@ -80,6 +81,7 @@ async def test_add_vocabulary_201(
         obj.jlpt_level = 5
         obj.hsk_level = None
         obj.status = "new"
+        obj.suspended = False
 
     sess.refresh = AsyncMock(side_effect=_refresh)
 

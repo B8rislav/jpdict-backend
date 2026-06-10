@@ -1,10 +1,11 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, computed_field
 
 from app.models.saved_word import WordStatus
 from app.models.user import LanguageEnum
+from app.services import srs
 from app.services.srs import Grade
 
 
@@ -28,6 +29,18 @@ class ReviewCard(BaseModel):
     suspended: bool
 
     model_config = {"from_attributes": True}
+
+    @computed_field
+    @property
+    def projected_intervals(self) -> dict[Grade, int]:
+        """Seconds-until-due per grade, so the client can label each grade button."""
+        state = srs.SrsState(
+            repetitions=self.repetitions,
+            interval_days=self.interval_days,
+            ease_factor=self.ease_factor,
+            lapses=self.lapses,
+        )
+        return srs.project_intervals(state)
 
 
 class ReviewGrade(BaseModel):

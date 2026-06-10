@@ -33,5 +33,6 @@ class SavedWord(BaseModel):
     hsk_level: int | None
     status: WordStatus
     added_at: datetime
+    suspended: bool
 
     model_config = {"from_attributes": True}
